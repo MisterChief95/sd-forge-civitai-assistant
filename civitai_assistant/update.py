@@ -129,8 +129,6 @@ def update_metadata(modelTypes: list[ModelType], overwrite_existing: bool, recal
             logger.error(f"Failed to write metadata to JSON file: {str(e)}")
 
 
-
-
 def update_preview_images(modelTypes: list[ModelType], overwrite_existing: bool, recalculate_hash: bool) -> None:
     """
     Updates the preview image for a given model descriptor by calling the Civitai API.
