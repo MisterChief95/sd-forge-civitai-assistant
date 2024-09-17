@@ -43,7 +43,9 @@ def on_ui_tabs():
                 with gr.Row():
                     metadata_btn = gr.Button("Update Tags", elem_id="update_tags_button")
                     preview_btn = gr.Button("Update Preview Image", elem_id="update_preview_button")
-                    check_updates_btn = gr.Button("Check For Updates", elem_id="check_updates_button")
+
+                    # TODO: Implement the check for updates functionality
+                    gr.Button("Check For Updates", elem_id="check_updates_button", interactive=False)
 
                 metadata_btn.click(fn=update_metadata, inputs=[model_checkboxes, overwrite_checkbox])
                 preview_btn.click(fn=update_preview_images, inputs=[model_checkboxes, overwrite_checkbox])
