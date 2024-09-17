@@ -1,0 +1,17 @@
+.civitai_helper_column {
+    max-width: 768px;
+    text-align: center;
+    margin: 0 auto;
+}
+
+.civitai_helper_row {
+    padding: 20px;
+}
+
+#ch_model_checkbox_group {
+    justify-content: center;
+}
+
+#ch_model_checkbox_group label {
+    margin: 10px;
+}
