@@ -2,7 +2,9 @@ import hashlib
 import os
 import json
 
-from .types import MetadataDescriptor, ModelDescriptor
+from civitai_assistant.utils.errors import get_exception_msg
+from civitai_assistant.logger import logger
+from civitai_assistant.type import MetadataDescriptor, ModelDescriptor
 
 
 def calculate_hash(file_path: str, buffer_size: int = 8192) -> str:
@@ -17,8 +19,6 @@ def calculate_hash(file_path: str, buffer_size: int = 8192) -> str:
         FileNotFoundError: If the file does not exist at the specified path.
     """
 
-    print(f"Computing hash for {os.path.basename(file_path)}", end="... ", flush=True)
-
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"The file {file_path} does not exist.")
 
@@ -28,7 +28,7 @@ def calculate_hash(file_path: str, buffer_size: int = 8192) -> str:
         while chunk := file.read(buffer_size):
             sha256_hash.update(chunk)
 
-    print("done", flush=True)
+    logger.info(f"Computed hash for {os.path.basename(file_path)}")
 
     return sha256_hash.hexdigest()
 
@@ -56,11 +56,15 @@ def write_preview(source: ModelDescriptor | str, img_bytes: bytes) -> None:
         str: The path to the preview image file.
     """
 
-    file_path: str = source.filename if isinstance(source, ModelDescriptor) else source
+    try:
+        file_path: str = source.filename if isinstance(source, ModelDescriptor) else source
 
-    img_path: str = os.path.splitext(file_path)[0] + ".preview.png"
-    with open(img_path, "wb") as img_file:
-        img_file.write(img_bytes)
+        img_path: str = os.path.splitext(file_path)[0] + ".preview.png"
+        with open(img_path, "wb") as img_file:
+            img_file.write(img_bytes)
+
+    except Exception as e:
+        logger.error(f"Failed to write preview image: {get_exception_msg(e)}")
 
 
 def has_json(source: ModelDescriptor | str) -> bool:
@@ -99,12 +103,11 @@ def write_json_file(source: ModelDescriptor) -> None:
     The JSON file is created in the same directory as the descriptor's filename,
     with the same base name and a .json extension.
     """
-
     with open(to_json_file(source), "w") as json_file:
         json.dump(source.metadata_descriptor.model_dump(by_alias=True), json_file, indent=4)
 
 
-def generate_model_descriptors(model_dir: str) -> list[ModelDescriptor]:
+def generate_model_descriptors(model_dir: str, recalculate_hash: bool) -> list[ModelDescriptor]:
     """
     Builds a list of model descriptors from the given directory.
     This function walks through the specified directory to find all files with the
@@ -139,18 +142,15 @@ def generate_model_descriptors(model_dir: str) -> list[ModelDescriptor]:
         else:
             with open(json_path, "r") as f:
                 metadata_descriptor = MetadataDescriptor.model_validate(json.load(f))
-                if not metadata_descriptor.hash:
+                if not metadata_descriptor.hash or recalculate_hash:
                     metadata_descriptor.hash = calculate_hash(model_file)
 
-        # Immediately save the metadata to the JSON file
-        write_json_file()
-
-        model_descriptors.append(
-            ModelDescriptor(
-                metadata_descriptor=metadata_descriptor,
-                filename=model_file,
-                requires_write=not metadata_descriptor.id or not metadata_descriptor.modelId,
-            )
+        model_descriptor = ModelDescriptor(
+            metadata_descriptor=metadata_descriptor,
+            filename=model_file,
         )
+
+        write_json_file(model_descriptor)
+        model_descriptors.append(model_descriptor)
 
     return model_descriptors

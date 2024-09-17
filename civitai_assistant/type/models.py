@@ -1,8 +1,7 @@
 from __future__ import annotations
-from dataclasses import astuple, dataclass
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import Optional, TypeVar, Generic
+from typing import Optional
 
 
 class MetadataDescriptor(BaseModel):
@@ -16,6 +15,21 @@ class MetadataDescriptor(BaseModel):
     negative_text: str = Field(default="", alias="negative text")
     notes: Optional[str] = ""
 
+    def __hash__(self):
+        return hash(
+            (
+                self.hash,
+                self.id,
+                self.modelId,
+                self.description,
+                self.sd_version,
+                self.activation_text,
+                self.preferred_weight,
+                self.negative_text,
+                self.notes,
+            )
+        )
+
 
 class ModelType(str, Enum):
     CHECKPOINT = "Checkpoint"
@@ -23,7 +37,9 @@ class ModelType(str, Enum):
     TEXTUAL_INVERSION = "Textual Inversion"
 
 
-class ModelDescriptor:
+class ModelDescriptor(BaseModel):
     metadata_descriptor: MetadataDescriptor = None
     filename: str = None
-    requires_write: bool = False
+
+    def __hash__(self):
+        return hash((self.metadata_descriptor, self.filename))

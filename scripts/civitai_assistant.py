@@ -1,22 +1,11 @@
-import logging
 import os
 
 import gradio as gr
 
-from lib_civitaiassistant.types import ModelType
-from lib_civitaiassistant.helper import update_metadata, update_preview_images
+from civitai_assistant.type import ModelType
+from civitai_assistant.update import update_metadata, update_preview_images
 
-from modules.shared import opts
 from modules import script_callbacks
-
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-is_debug = getattr(opts, "is_debug", False)
-
-if is_debug:
-    logger.setLevel(logging.DEBUG)
 
 
 # TODO: Determine why css was not loading/taking affect
@@ -37,7 +26,11 @@ def on_ui_tabs():
                 with gr.Row():
                     overwrite_checkbox = gr.Checkbox(
                         label="Overwite Existing Tags/Images",
-                        elem_id="civitai_assistant_checkbox",
+                        elem_classes="civitai_assistant_checkbox",
+                    )
+                    recalculate_hash = gr.Checkbox(
+                        label="Recalculate Hashes",
+                        elem_classes="civitai_assistant_checkbox",
                     )
 
             with gr.Row(elem_classes="civitai_assistant_row"):
@@ -48,8 +41,10 @@ def on_ui_tabs():
                     # TODO: Implement the check for updates functionality
                     gr.Button("Check For Updates", elem_id="check_updates_button", interactive=False)
 
-                metadata_btn.click(fn=update_metadata, inputs=[model_checkboxes, overwrite_checkbox])
-                preview_btn.click(fn=update_preview_images, inputs=[model_checkboxes, overwrite_checkbox])
+                metadata_btn.click(fn=update_metadata, inputs=[model_checkboxes, overwrite_checkbox, recalculate_hash])
+                preview_btn.click(
+                    fn=update_preview_images, inputs=[model_checkboxes, overwrite_checkbox, recalculate_hash]
+                )
 
     return [(civitai_assistant_view, "Civitai Assistant", "civitai_assistant_tab")]
 
