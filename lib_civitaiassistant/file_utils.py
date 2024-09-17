@@ -5,7 +5,7 @@ import json
 from .types import MetadataDescriptor, ModelDescriptor
 
 
-def calculate_file_hash(file_path: str, buffer_size: int = 8192) -> str:
+def calculate_hash(file_path: str, buffer_size: int = 8192) -> str:
     """
     Computes the SHA-256 hash of a file.
     Args:
@@ -33,7 +33,7 @@ def calculate_file_hash(file_path: str, buffer_size: int = 8192) -> str:
     return sha256_hash.hexdigest()
 
 
-def has_preview_image(source: ModelDescriptor | str) -> bool:
+def preview_exists(source: ModelDescriptor | str) -> bool:
     """
     Checks if a given descriptor has a preview image.
     Args:
@@ -47,7 +47,7 @@ def has_preview_image(source: ModelDescriptor | str) -> bool:
     return os.path.exists(os.path.splitext(file_path)[0] + ".preview.png")
 
 
-def write_preview_image_file(source: ModelDescriptor | str, img_bytes: bytes) -> None:
+def write_preview(source: ModelDescriptor | str, img_bytes: bytes) -> None:
     """
     Gets the input file's corresponding preview image file.
     Args:
@@ -63,7 +63,7 @@ def write_preview_image_file(source: ModelDescriptor | str, img_bytes: bytes) ->
         img_file.write(img_bytes)
 
 
-def has_json_metadata(source: ModelDescriptor | str) -> bool:
+def has_json(source: ModelDescriptor | str) -> bool:
     """
     Checks if a given descriptor has a JSON metadata file.
     Args:
@@ -77,7 +77,7 @@ def has_json_metadata(source: ModelDescriptor | str) -> bool:
     return os.path.exists(os.path.splitext(file_path)[0] + ".json")
 
 
-def get_json_file(source: ModelDescriptor | str) -> bool:
+def to_json_file(source: ModelDescriptor | str) -> bool:
     """
     Gets the input files corresponding JSON metadata file.
     Args:
@@ -91,7 +91,7 @@ def get_json_file(source: ModelDescriptor | str) -> bool:
     return os.path.splitext(file_path)[0] + ".json"
 
 
-def write_metadata_json(source: ModelDescriptor | str) -> None:
+def write_json_file(source: ModelDescriptor) -> None:
     """
     Writes the metadata of a given descriptor to a JSON file.
     Args:
@@ -100,11 +100,11 @@ def write_metadata_json(source: ModelDescriptor | str) -> None:
     with the same base name and a .json extension.
     """
 
-    with open(get_json_file(source), "w") as json_file:
+    with open(to_json_file(source), "w") as json_file:
         json.dump(source.metadata_descriptor.model_dump(by_alias=True), json_file, indent=4)
 
 
-def build_model_descriptors_for_dir(model_dir: str) -> list[ModelDescriptor]:
+def generate_model_descriptors(model_dir: str) -> list[ModelDescriptor]:
     """
     Builds a list of model descriptors from the given directory.
     This function walks through the specified directory to find all files with the
@@ -135,15 +135,15 @@ def build_model_descriptors_for_dir(model_dir: str) -> list[ModelDescriptor]:
         metadata_descriptor: MetadataDescriptor = None
 
         if not os.path.exists(json_path):
-            metadata_descriptor = MetadataDescriptor(hash=calculate_file_hash(model_file))
+            metadata_descriptor = MetadataDescriptor(hash=calculate_hash(model_file))
         else:
             with open(json_path, "r") as f:
                 metadata_descriptor = MetadataDescriptor.model_validate(json.load(f))
                 if not metadata_descriptor.hash:
-                    metadata_descriptor.hash = calculate_file_hash(model_file)
+                    metadata_descriptor.hash = calculate_hash(model_file)
 
         # Immediately save the metadata to the JSON file
-        write_metadata_json(metadata_descriptor, model_file)
+        write_json_file()
 
         model_descriptors.append(
             ModelDescriptor(

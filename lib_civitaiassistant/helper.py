@@ -44,7 +44,7 @@ def get_model_descriptors(model_types: list[ModelType]) -> list[ModelDescriptor]
             logger.error(f"Unknown or unselected model type: {modelType}")
             continue
 
-        model_descriptors.extend(file_utils.build_model_descriptors_for_dir(model_dir))
+        model_descriptors.extend(file_utils.generate_model_descriptors(model_dir))
 
     return model_descriptors
 
@@ -112,7 +112,7 @@ def update_metadata(modelTypes: list[ModelType], overwrite_existing: bool) -> No
 
     if not overwrite_existing:
         model_descriptors = [
-            descriptor for descriptor in model_descriptors if not file_utils.has_preview_image(descriptor)
+            descriptor for descriptor in model_descriptors if not file_utils.preview_exists(descriptor)
         ]
 
     api_model_list: list[tuple[ModelDescriptor, Result[CivitaiModel]]] = asyncio.run(
@@ -136,7 +136,7 @@ def update_metadata(modelTypes: list[ModelType], overwrite_existing: bool) -> No
         if result.value.description and not result.value.description.isspace():
             descriptor.metadata_descriptor.description = soup(result.value.description, "html.parser").get_text()
 
-        file_utils.write_metadata_json(descriptor)
+        file_utils.write_json_file(descriptor)
 
     logging.info("Metadata update completed")
 
@@ -164,7 +164,7 @@ def update_preview_images(modelTypes: list[ModelType], overwrite_existing: bool)
 
     if not overwrite_existing:
         model_descriptors = [
-            descriptor for descriptor in model_descriptors if not file_utils.has_preview_image(descriptor)
+            descriptor for descriptor in model_descriptors if not file_utils.preview_exists(descriptor)
         ]
 
     api_model_list: list[tuple[ModelDescriptor, Result[CivitaiModel]]] = asyncio.run(
@@ -183,6 +183,6 @@ def update_preview_images(modelTypes: list[ModelType], overwrite_existing: bool)
 
     for descriptor, img_result in preview_image_list:
         if img_result.value:
-            file_utils.write_preview_image_file(descriptor, img_result.value.content)
+            file_utils.write_preview(descriptor, img_result.value.content)
 
     logging.info("Finished calling API")

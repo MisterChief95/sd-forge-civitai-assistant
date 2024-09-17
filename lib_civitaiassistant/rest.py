@@ -1,9 +1,9 @@
 import requests
 
+from urllib.parse import urlparse, urlencode
 from requests.exceptions import RequestException
 
 from .types import CivitaiModel, Result
-from urllib.parse import urlparse, urlencode
 
 
 # Ensure valid URL
