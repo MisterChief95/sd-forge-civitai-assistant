@@ -19,6 +19,7 @@ if is_debug:
     logger.setLevel(logging.DEBUG)
 
 
+# TODO: Determine why css was not loading/taking affect
 css_path = os.path.join(os.path.dirname(os.path.abspath(__name__)), "styles.css")
 
 
