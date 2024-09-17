@@ -11,6 +11,19 @@ Fetch metadata for the following model types:
   1. LoRA/DoRA/LyCORIS
   1. Textual Inversions (Embeddings)
 
+
+## Work in Progress
+
+🚧 **Currently being worked on:**
+- Improved metadata fetching speed
+- Enhanced UI for better user experience
+
+📝 **Planned features:**
+- Checking for new model versions
+- Downloading models
+  - By URL
+  - Simple integrated GUI
+
 ## Installation
 
 1. Navigate to the extension directory in your WebUI installation
