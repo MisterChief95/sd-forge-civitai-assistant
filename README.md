@@ -17,6 +17,7 @@ Fetch metadata for the following model types:
 🚧 **Currently being worked on:**
 - Improved metadata fetching speed
 - Enhanced UI for better user experience
+  - Add progress bar
 
 📝 **Planned features:**
 - Checking for new model versions
