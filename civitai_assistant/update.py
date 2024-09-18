@@ -11,6 +11,7 @@ from civitai_assistant.utils import files as file_utils
 from modules import shared
 from modules.shared import cmd_opts
 from modules import sd_models
+from modules.extra_networks import parse_prompt
 
 
 def get_model_descriptors(model_types: list[ModelType], recalculate_hash: bool) -> list[ModelDescriptor]:
@@ -114,9 +115,12 @@ def update_metadata(modelTypes: list[ModelType], overwrite_existing: bool, recal
         descriptor.metadata_descriptor.sd_version = (
             civitai_model.baseModel if civitai_model.baseModel != "Pony" else "Other"
         )
-        descriptor.metadata_descriptor.activation_text = (
-            ",, ".join(civitai_model.trainedWords) if civitai_model.trainedWords else ""
-        )
+
+        activation_text: str = ", ".join(civitai_model.trainedWords) if civitai_model.trainedWords else ""
+        if activation_text:
+            activation_text = parse_prompt(activation_text)[0]
+
+        descriptor.metadata_descriptor.activation_text = activation_text
 
         if civitai_model.description and not civitai_model.description.isspace():
             descriptor.metadata_descriptor.description = soup(civitai_model.description, "html.parser").get_text()

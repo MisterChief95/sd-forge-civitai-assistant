@@ -8,45 +8,44 @@ from civitai_assistant.update import update_metadata, update_preview_images
 from modules import script_callbacks
 
 
-# TODO: Determine why css was not loading/taking affect
-css_path = os.path.join(os.path.dirname(os.path.abspath(__name__)), "styles.css")
-
-
 def on_ui_tabs():
     with gr.Blocks(analytics_enabled=False) as civitai_assistant_view:
-        with gr.Column(variant="compact", elem_id="civitai_assistant_column"):
-            with gr.Row(elem_classes="civitai_assistant_row"):
+        with gr.Column(scale=1, min_width=768):
+            with gr.Row():
+                gr.HTML(
+                    """
+                    <center>
+                        <h1>Civitai Assistant</h1>
+                        <p>Use this assistant to update metadata and preview images for Civitai models.</p>
+                    </center>
+                    """)
+            with gr.Row():
                 model_checkboxes = gr.CheckboxGroup(
                     [member.value for member in ModelType],
                     label="Models",
-                    info="Select models to update info for",
-                    elem_id="ch_model_checkbox_group",
                 )
-            with gr.Row(elem_classes="civitai_assistant_row"):
-                with gr.Row():
+            with gr.Row():
+                with gr.Group():
                     overwrite_checkbox = gr.Checkbox(
                         label="Overwite Existing Tags/Images",
-                        elem_classes="civitai_assistant_checkbox",
                     )
                     recalculate_hash = gr.Checkbox(
                         label="Recalculate Hashes",
-                        elem_classes="civitai_assistant_checkbox",
                     )
 
-            with gr.Row(elem_classes="civitai_assistant_row"):
-                with gr.Row():
-                    metadata_btn = gr.Button("Update Tags", elem_id="update_tags_button")
-                    preview_btn = gr.Button("Update Preview Image", elem_id="update_preview_button")
+            with gr.Row():
+                metadata_btn = gr.Button("Update Tags")
+                preview_btn = gr.Button("Update Preview Image")
 
-                    # TODO: Implement the check for updates functionality
-                    gr.Button("Check For Updates", elem_id="check_updates_button", interactive=False)
+                # TODO: Implement the check for updates functionality
+                gr.Button("Check For Updates", interactive=False)
 
                 metadata_btn.click(fn=update_metadata, inputs=[model_checkboxes, overwrite_checkbox, recalculate_hash])
                 preview_btn.click(
                     fn=update_preview_images, inputs=[model_checkboxes, overwrite_checkbox, recalculate_hash]
                 )
 
-    return [(civitai_assistant_view, "Civitai Assistant", "civitai_assistant_tab")]
+        return [(civitai_assistant_view, "Civitai Assistant", "civitai_assistant_tab")]
 
 
 script_callbacks.on_ui_tabs(on_ui_tabs)
