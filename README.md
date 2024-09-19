@@ -6,24 +6,23 @@ Civitai Assistant is an extension for the Stable Diffusion Forge WebUI. Its prim
 
 ## Features
 
-Fetch metadata for the following model types:
+- Fetch metadata for the following model types:
   1. Checkpoints
   1. LoRA/DoRA/LyCORIS
   1. Textual Inversions (Embeddings)
-
+- Clean UI
 
 ## Work in Progress
 
 🚧 **Currently being worked on:**
 - Improved metadata fetching speed
 - Enhanced UI for better user experience
-  - Add progress bar
 
 📝 **Planned features:**
 - Checking for new model versions
 - Downloading models
   - By URL
-  - Simple integrated GUI
+  - Simple integrated browser
 
 ## Installation
 
