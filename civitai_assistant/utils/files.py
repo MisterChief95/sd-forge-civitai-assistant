@@ -2,6 +2,7 @@ import hashlib
 import os
 import json
 from collections.abc import Callable
+from typing import Any, Optional
 
 from threading import Lock
 
@@ -36,7 +37,7 @@ def find_model_files(model_types: list[ModelType]) -> list[str]:
     model_files = []
 
     for modelType in model_types:
-        model_dir: str = MODEL_TYPE_TO_DIRECTORY.get(modelType, lambda: None)()
+        model_dir: Optional[str] = MODEL_TYPE_TO_DIRECTORY.get(modelType, lambda: None)()
         if model_dir is None:
             logger.warning(f"Unknown or unselected model type: {modelType}")
             continue
@@ -138,7 +139,7 @@ def has_json(file_path: str) -> bool:
     return os.path.exists(os.path.splitext(file_path)[0] + ".json")
 
 
-def to_json_file(file_path: str) -> bool:
+def to_json_file(file_path: str) -> str:
     """
     Gets the input files corresponding JSON metadata file.
     Args:
@@ -162,7 +163,7 @@ def write_json_file(source: ModelDescriptor) -> None:
         json.dump(source.metadata_descriptor.model_dump(by_alias=True), json_file, indent=4)
 
 
-def __cache_key(*args, **_) -> str:
+def __cache_key(*args, **_) -> Any:
     return hashkey(args[0])
 
 

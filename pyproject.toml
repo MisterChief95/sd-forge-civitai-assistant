@@ -1,0 +1,27 @@
+[project]
+name = "sd-forge-civitai-assistant"
+version = "0.1.0"
+description = "A CivitAI assistant extension for stable-diffusion-webui-forge"
+license = "Apache 2"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = [
+    "bs4",
+    "cachetools",
+    "cachetools.*",
+    "gradio",
+    "modules",
+    "modules.*",
+    "requests",
+    "requests.*"
+]
+ignore_missing_imports = true
+
+[tool.black]
+line-length = 120
+target-version = ['py310', 'py311']

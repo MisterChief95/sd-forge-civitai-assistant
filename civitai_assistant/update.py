@@ -7,38 +7,12 @@ from bs4 import BeautifulSoup as soup
 
 import civitai_assistant.api as rest
 from civitai_assistant.logger import logger
-from civitai_assistant.type import ModelDescriptor, ModelType, CivitaiModel
+from civitai_assistant.type import ModelDescriptor, ModelType
 from civitai_assistant.ui import progressify_sequence
 from civitai_assistant.utils import files as file_utils
 
 
 from modules.extra_networks import parse_prompt
-
-
-def fetch_previews(model_previews: list[tuple[ModelDescriptor, str]]) -> list[tuple[ModelDescriptor, bytes]]:
-    """
-    Fetches previews for a list of model descriptors and their corresponding image URLs.
-    Args:
-        model_previews (list[tuple[ModelDescriptor, str]]): A list of tuples where each tuple contains a ModelDescriptor and a string representing the image URL.
-    Returns:
-        list[tuple[ModelDescriptor, bytes]]: A list of tuples where each tuple contains a ModelDescriptor and a Result object wrapping the response from the image URL request.
-    """
-
-    return [(descriptor, rest.fetch_image_preview(img_url)) for descriptor, img_url in model_previews]
-
-
-def fetch_metadata(model_descriptors: list[ModelDescriptor]) -> list[tuple[ModelDescriptor, CivitaiModel]]:
-    """
-    Fetch metadata for a list of model descriptors.
-    Args:
-        model_descriptors (list[ModelDescriptor]): A list of ModelDescriptor objects for which metadata needs to be fetched.
-    Returns:
-        list[tuple[ModelDescriptor, Result[CivitaiModel]]]: A list of tuples where each tuple contains a ModelDescriptor and the corresponding fetched metadata result.
-    """
-
-    return [
-        (descriptor, rest.fetch_model_data(descriptor.metadata_descriptor.hash)) for descriptor in model_descriptors
-    ]
 
 
 def update_metadata(
@@ -180,7 +154,7 @@ def update_preview_images(
             continue
 
         pr(progress, f"Fetching image: {file_basename}")
-        img_bytes: bytes = rest.fetch_image_preview(civitai_model.images[0].url)
+        img_bytes = rest.fetch_image_preview(civitai_model.images[0].url)
 
         if img_bytes:
             file_utils.write_preview(descriptor.filename, img_bytes)

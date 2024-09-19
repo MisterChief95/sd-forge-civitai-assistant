@@ -5,7 +5,7 @@ from typing import Optional
 
 
 class MetadataDescriptor(BaseModel):
-    hash: Optional[str] = None
+    hash: str
     id: Optional[int] = None
     modelId: Optional[int] = None
     description: Optional[str] = None
@@ -38,8 +38,8 @@ class ModelType(str, Enum):
 
 
 class ModelDescriptor(BaseModel):
-    metadata_descriptor: MetadataDescriptor = None
-    filename: str = None
+    metadata_descriptor: MetadataDescriptor
+    filename: str
 
     def __hash__(self):
         return hash((self.metadata_descriptor, self.filename))

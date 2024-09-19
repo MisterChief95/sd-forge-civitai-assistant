@@ -1,8 +1,10 @@
 import requests
-
+from typing import Optional
 from urllib.parse import urlparse, urlencode
+
 from requests.exceptions import RequestException
 
+from civitai_assistant.utils.errors import get_exception_msg
 from civitai_assistant.logger import logger
 from civitai_assistant.type import CivitaiModel
 
@@ -11,7 +13,7 @@ from civitai_assistant.type import CivitaiModel
 API_BY_HASH = "https://civitai.com/api/v1/model-versions/by-hash/{}"
 
 
-def fetch_model_data(model_hash: str) -> CivitaiModel:
+def fetch_model_data(model_hash: str) -> Optional[CivitaiModel]:
     """
     Fetches model data from the Civitai API using the provided model hash.
     Args:
@@ -37,7 +39,7 @@ def fetch_model_data(model_hash: str) -> CivitaiModel:
         return None
 
 
-def fetch_image_preview(url: str) -> bytes:
+def fetch_image_preview(url: str) -> Optional[bytes]:
     """
     Sends an HTTP request to the specified URL using the provided method and headers.
     Args:
@@ -49,13 +51,27 @@ def fetch_image_preview(url: str) -> bytes:
     Returns:
         Result[requests.Response]: A Result object containing either the response or an error.
     """
-    response = send_request(urlparse(url).geturl(), stream=True)
 
-    return response.content if response else None
+    try:
+        response = send_request(urlparse(url).geturl(), stream=True)
+
+        if response and isinstance(response.content, bytes):
+            return response.content
+
+        raise Exception("Failed to fetch image preview")
+
+    except Exception as e:
+        logger.error(f"Failed to fetch image preview from {url}: {get_exception_msg(e)}")
+
+        return None
 
 
 def send_request(
-    url: str, method: str = "GET", api_token: str = None, headers: dict = None, stream: bool = False
+    url: str,
+    method: str = "GET",
+    api_token: Optional[str] = None,
+    headers: Optional[dict] = None,
+    stream: Optional[bool] = False,
 ) -> requests.Response:
     """
     Sends an HTTP request to the specified URL using the provided method and headers.
