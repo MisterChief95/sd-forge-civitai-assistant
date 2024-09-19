@@ -69,9 +69,9 @@ def update_metadata(
         time.sleep(1.5)
         return
 
-    if overwrite_existing:
-        pr(0.2, "Checking existing JSON metadata files")
-        model_files = [file for file in model_files if file_utils.has_json(file)]
+    pr(0.2, "Checking existing JSON metadata files")
+    if not overwrite_existing:
+        model_files = [file for file in model_files if not file_utils.has_json(file)]
 
     if not model_files:
         logger.info("No model files found after filtering existing JSON metadata files. Exiting update process.")
@@ -148,8 +148,8 @@ def update_preview_images(
         time.sleep(1.5)
         return
 
-    if overwrite_existing:
-        pr(0.2, "Checking existing preview images")
+    pr(0.2, "Checking existing preview images")
+    if not overwrite_existing:
         model_files = [file for file in model_files if not file_utils.preview_exists(file)]
 
     if not model_files:
