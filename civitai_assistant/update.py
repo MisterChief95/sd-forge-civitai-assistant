@@ -150,7 +150,7 @@ def update_preview_images(
 
     if overwrite_existing:
         pr(0.2, "Checking existing preview images")
-        model_files = [file for file in model_files if file_utils.preview_exists(file)]
+        model_files = [file for file in model_files if not file_utils.preview_exists(file)]
 
     if not model_files:
         logger.info("No model files found after filtering existing previews. Exiting update process.")
@@ -183,10 +183,10 @@ def update_preview_images(
         img_bytes: bytes = rest.fetch_image_preview(civitai_model.images[0].url)
 
         if img_bytes:
-            file_utils.write_preview(descriptor, img_bytes)
-            logger.info(f"Updated preview image for {os.path.basename(descriptor.filename)}")
+            file_utils.write_preview(descriptor.filename, img_bytes)
+            logger.info(f"Updated preview image for {file_basename}")
         else:
-            logger.warning(f"Failed to retrieve preview image for {os.path.basename(descriptor.filename)}")
+            logger.warning(f"Failed to retrieve preview image for {file_basename}")
 
     pr(1.0, "Done")
     time.sleep(1.5)

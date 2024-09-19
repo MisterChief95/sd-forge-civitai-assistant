@@ -158,11 +158,15 @@ def write_json_file(source: ModelDescriptor) -> None:
     The JSON file is created in the same directory as the descriptor's filename,
     with the same base name and a .json extension.
     """
-    with open(to_json_file(source), "w") as json_file:
+    with open(to_json_file(source.filename), "w") as json_file:
         json.dump(source.metadata_descriptor.model_dump(by_alias=True), json_file, indent=4)
 
 
-@cached(cache=TTLCache(maxsize=32, ttl=300), key=lambda args: hashkey(args[0]), lock=Lock())
+def __cache_key(*args, **_) -> str:
+    return hashkey(args[0])
+
+
+@cached(cache=TTLCache(maxsize=32, ttl=300), key=__cache_key, lock=Lock())
 def generate_model_descriptor(model_file: str, recalculate_hash: bool = False) -> ModelDescriptor:
     """
     Generates a model descriptor for the given model file.
@@ -188,7 +192,7 @@ def generate_model_descriptor(model_file: str, recalculate_hash: bool = False) -
             if not metadata_descriptor.hash or recalculate_hash:
                 metadata_descriptor.hash = calculate_hash(model_file)
 
-    model_descriptor = ModelDescriptor(metadata_descriptor, model_file)
+    model_descriptor = ModelDescriptor(metadata_descriptor=metadata_descriptor, filename=model_file)
 
     # Write the file so we don't have to recompute the hash
     write_json_file(model_descriptor)
