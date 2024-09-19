@@ -1,28 +1,39 @@
 # Civitai Assistant for Stable Diffusion Forge WebUI
 
+![Window](https://github.com/user-attachments/assets/fb74c2ba-3c26-4241-92ad-96cab6145b46)
+
 ## Overview
 
 Civitai Assistant is an extension for the Stable Diffusion Forge WebUI. Its primary purpose is to fetch metadata for various models, including checkpoints, Loras, and embeddings.
 
 ## Features
 
-- Fetch metadata for the following model types:
+- Supports the following model types:
   1. Checkpoints
   1. LoRA/DoRA/LyCORIS
   1. Textual Inversions (Embeddings)
+- Update model tags
+  - LoRA activation text
+  - SD version
+  - SHA-256 hash for API
+  - Listing ID/model ID
 - Clean UI
 
 ## Work in Progress
 
 🚧 **Currently being worked on:**
 - Improved metadata fetching speed
-- Enhanced UI for better user experience
+- Checking for new model versions
 
 📝 **Planned features:**
-- Checking for new model versions
 - Downloading models
   - By URL
   - Simple integrated browser
+- More model support
+  - Hypernetwork
+  - AestheticGradient
+  - Controlnet
+  - Poses
 
 ## Installation
 
