@@ -11,7 +11,7 @@ class CustomFormatter(logging.Formatter):
     cyan = "\x1b[36m"
     white = "\x1b[97m"
     reset = "\x1b[0m"
-    log_format = "{1}[%(name)s]{0} - {2}%(levelname)8s{0} :: %(message)s"
+    log_format = "{1}[%(name)s]{0} {2}%(message)s{0}"
 
     FORMATS = {
         logging.DEBUG: log_format.format(reset, cyan, reset),
