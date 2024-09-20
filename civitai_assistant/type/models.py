@@ -7,7 +7,7 @@ from typing import Optional
 class MetadataDescriptor(BaseModel):
     hash: str
     id: Optional[int] = None
-    modelId: Optional[int] = None
+    model_id: Optional[int] = Field(default=None, alias="model id")
     description: Optional[str] = None
     sd_version: str = Field(default="Other", alias="sd version")
     activation_text: str = Field(default="", alias="activation text")

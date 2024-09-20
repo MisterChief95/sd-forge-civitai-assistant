@@ -1,5 +1,6 @@
 import os
 import time
+from typing import Optional
 
 import gradio as gr
 
@@ -7,7 +8,7 @@ from bs4 import BeautifulSoup as soup
 
 import civitai_assistant.api as rest
 from civitai_assistant.logger import logger
-from civitai_assistant.type import ModelDescriptor, ModelType
+from civitai_assistant.type import CivitaiModel, ModelDescriptor, ModelType
 from civitai_assistant.ui import progressify_sequence
 from civitai_assistant.utils import files as file_utils
 
@@ -65,14 +66,15 @@ def update_metadata(
         file_basename = os.path.basename(descriptor.filename)
 
         pr(progress, f"Fetching metadata: {file_basename}")
-        civitai_model = rest.fetch_model_data(descriptor.metadata_descriptor.hash)
+
+        civitai_model: Optional[CivitaiModel] = _fetch_latest_meta(descriptor, file_basename)
 
         if not civitai_model:
             logger.error(f"Failed to retrieve metadata for {file_basename}")
             continue
 
         descriptor.metadata_descriptor.id = civitai_model.id
-        descriptor.metadata_descriptor.modelId = civitai_model.modelId
+        descriptor.metadata_descriptor.model_id = civitai_model.modelId
         descriptor.metadata_descriptor.sd_version = (
             civitai_model.baseModel if civitai_model.baseModel != "Pony" else "Other"
         )
@@ -144,7 +146,8 @@ def update_preview_images(
         file_basename = os.path.basename(descriptor.filename)
 
         pr(progress, f"Fetching metadata: {file_basename}")
-        civitai_model = rest.fetch_model_data(descriptor.metadata_descriptor.hash)
+
+        civitai_model: Optional[CivitaiModel] = _fetch_latest_meta(descriptor, file_basename)
 
         if not civitai_model:
             logger.error(f"Failed to retrieve metadata for {file_basename}")
@@ -164,3 +167,17 @@ def update_preview_images(
 
     pr(1.0, "Done")
     time.sleep(1.5)
+
+
+def _fetch_latest_meta(descriptor: ModelDescriptor, file_basename: str) -> Optional[CivitaiModel]:
+    civitai_model: Optional[CivitaiModel]
+
+    if not descriptor.metadata_descriptor.model_id:
+        civitai_model = rest.fetch_model_by_hash(descriptor.metadata_descriptor.hash)
+        if not civitai_model or not civitai_model.modelId:
+            logger.error(f"Failed to retrieve metadata for {file_basename}")
+            return None
+        else:
+            descriptor.metadata_descriptor.model_id = civitai_model.modelId
+
+    return rest.fetch_model_by_model_id(descriptor.metadata_descriptor.model_id)

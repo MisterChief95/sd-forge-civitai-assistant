@@ -9,11 +9,11 @@ from civitai_assistant.logger import logger
 from civitai_assistant.type import CivitaiModel
 
 
-# Ensure valid URL
 API_BY_HASH = "https://civitai.com/api/v1/model-versions/by-hash/{}"
+API_BY_MODEL_ID = "https://civitai.com/api/v1/models/{}"
 
 
-def fetch_model_data(model_hash: str) -> Optional[CivitaiModel]:
+def fetch_model_by_hash(model_hash: str) -> Optional[CivitaiModel]:
     """
     Fetches model data from the Civitai API using the provided model hash.
     Args:
@@ -23,6 +23,31 @@ def fetch_model_data(model_hash: str) -> Optional[CivitaiModel]:
     """
 
     response = send_request(API_BY_HASH.format(model_hash))
+
+    if not response:
+        return None
+
+    try:
+        civitai_model = CivitaiModel.model_validate(response.json())
+
+        return civitai_model
+
+    except Exception as e:
+        logger.error(f"Failed to convert response to CivitaiModel: {str(e)}")
+
+        return None
+
+
+def fetch_model_by_model_id(model_id: str | int) -> Optional[CivitaiModel]:
+    """
+    Fetches model data from the Civitai API using the provided model hash.
+    Args:
+        model_hash (str): The hash of the model to fetch data for.
+    Returns:
+        Result[CivitaiModel]: A Result object containing either the fetched CivitaiModel data or an error.
+    """
+
+    response = send_request(API_BY_MODEL_ID.format(model_id))
 
     if not response:
         return None
