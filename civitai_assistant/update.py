@@ -7,13 +7,30 @@ import gradio as gr
 from bs4 import BeautifulSoup as soup
 
 import civitai_assistant.api as rest
-from civitai_assistant.logger import logger
+import civitai_assistant.utils.files as files
+import civitai_assistant.utils.sd_path as sd_path
+from civitai_assistant.const import *
+from civitai_assistant.utils.logger import logger
 from civitai_assistant.type import CivitaiModel, ModelDescriptor, ModelType
 from civitai_assistant.ui import progressify_sequence
-from civitai_assistant.utils import files as file_utils
 
 
 from modules.extra_networks import parse_prompt
+from modules.shared import opts
+
+
+def _fetch_latest_meta(descriptor: ModelDescriptor, file_basename: str) -> Optional[CivitaiModel]:
+    civitai_model: Optional[CivitaiModel]
+
+    if not descriptor.metadata_descriptor.model_id:
+        civitai_model = rest.fetch_model_by_hash(descriptor.metadata_descriptor.hash)
+        if not civitai_model or not civitai_model.modelId:
+            logger.error(FAILED_META.format(file_basename))
+            return None
+        else:
+            descriptor.metadata_descriptor.model_id = civitai_model.modelId
+
+    return rest.fetch_model_by_id(descriptor.metadata_descriptor.model_id)
 
 
 def update_metadata(
@@ -36,47 +53,50 @@ def update_metadata(
     """
 
     pr(0.1, "Finding model files")
-    model_files: list[str] = file_utils.find_model_files(modelTypes)
+    model_files: list[str] = sd_path.find_model_files(modelTypes)
 
     if not model_files:
-        logger.info("No model files found. Exiting update process.")
-        pr(1.0, "No model files found")
+        logger.info(NO_MODELS_FOUND)
+        gr.Info(NO_MODELS_FOUND)
+        pr(1.0, NO_MODELS_FOUND)
         time.sleep(1.5)
         return
 
-    pr(0.2, "Checking existing JSON metadata files")
+    pr(0.2, "Checking for overwrite")
     if not overwrite_existing:
-        model_files = [file for file in model_files if not file_utils.has_json(file)]
+        model_files = [file for file in model_files if not files.has_json(file)]
 
     if not model_files:
-        logger.info("No model files found after filtering existing JSON metadata files. Exiting update process.")
+        logger.info(NO_MODELS_AFTER_FILTER)
+        gr.Info(NO_MODELS_FOUND)
         pr(1.0, "Done")
         time.sleep(1.5)
         return
 
     for model_file, progress in progressify_sequence(model_files, lower_bound=0.2, upper_bound=0.9):
-        pr(progress, f"Building model descriptor: {os.path.basename(model_file)}")
+        pr(progress, BUILD_DESCRIPTOR.format(os.path.basename(model_file)))
 
-        descriptor: ModelDescriptor = file_utils.generate_model_descriptor(model_file, recalculate_hash)
+        descriptor: ModelDescriptor = files.generate_model_descriptor(model_file, recalculate_hash)
 
         if not descriptor:
-            logger.error(f"Failed to build model descriptor for {os.path.basename(model_file)}")
+            msg = FAILED_BUILD_DESCRIPTOR.format(os.path.basename(model_file))
+            logger.error(msg)
+            gr.Warning(msg)
             continue
 
-        file_basename = os.path.basename(descriptor.filename)
+        pr(progress, FETCHING_META.format(descriptor.file_basename))
 
-        pr(progress, f"Fetching metadata: {file_basename}")
-
-        civitai_model: Optional[CivitaiModel] = _fetch_latest_meta(descriptor, file_basename)
+        civitai_model: Optional[CivitaiModel] = _fetch_latest_meta(descriptor, descriptor.file_basename)
 
         if not civitai_model:
-            logger.error(f"Failed to retrieve metadata for {file_basename}")
+            msg = FAILED_META.format(descriptor.file_basename)
+            logger.error(FAILED_META.format(descriptor.file_basename))
             continue
 
         descriptor.metadata_descriptor.id = civitai_model.id
         descriptor.metadata_descriptor.model_id = civitai_model.modelId
         descriptor.metadata_descriptor.sd_version = (
-            civitai_model.baseModel if civitai_model.baseModel != "Pony" else "Other"
+            civitai_model.baseModel if civitai_model.baseModel or civitai_model.baseModel != "Pony" else "Other"
         )
 
         activation_text: str = ", ".join(civitai_model.trainedWords) if civitai_model.trainedWords else ""
@@ -86,12 +106,15 @@ def update_metadata(
         descriptor.metadata_descriptor.activation_text = activation_text
 
         if civitai_model.description and not civitai_model.description.isspace():
-            descriptor.metadata_descriptor.description = soup(civitai_model.description, "html.parser").get_text()
+            if opts.ca_use_html_descriptions:
+                descriptor.metadata_descriptor.description = soup(civitai_model.description, "html.parser").get_text()
+            else:
+                descriptor.metadata_descriptor.description = civitai_model.description
 
-        pr(progress, f"Writing metadata: {file_basename}")
+        pr(progress, f"Writing metadata: {descriptor.file_basename}")
         try:
-            file_utils.write_json_file(descriptor)
-            logger.info(f"Updated metadata: {file_basename}")
+            files.write_json_file(descriptor)
+            logger.info(f"Updated metadata: {descriptor.file_basename}")
 
         except Exception as e:
             logger.error(f"Failed to write metadata to JSON file: {str(e)}")
@@ -115,69 +138,55 @@ def update_preview_images(
         - If the API call fails or the image retrieval fails, an error message is printed.
     """
 
-    pr(0.1, "Finding model files")
-    model_files: list[str] = file_utils.find_model_files(modelTypes)
+    pr(0.1, FINDING_MODELS)
+    model_files: list[str] = sd_path.find_model_files(modelTypes)
 
     if not model_files:
-        logger.info("No model files found. Exiting update process.")
-        pr(1.0, "No model files found")
+        logger.info(NO_MODELS_FOUND)
+        gr.Info(NO_MODELS_FOUND)
+        pr(1.0, NO_MODELS_FOUND)
         time.sleep(1.5)
         return
 
-    pr(0.2, "Checking existing preview images")
+    pr(0.2, CHECK_OVERWRITE)
     if not overwrite_existing:
-        model_files = [file for file in model_files if not file_utils.preview_exists(file)]
+        model_files = [file for file in model_files if not files.preview_exists(file)]
 
     if not model_files:
-        logger.info("No model files found after filtering existing previews. Exiting update process.")
+        logger.info(NO_MODELS_AFTER_FILTER)
+        gr.Info(NO_MODELS_FOUND)
         pr(1.0, "Done")
         time.sleep(1.5)
         return
 
     for model_file, progress in progressify_sequence(model_files, lower_bound=0.2, upper_bound=0.9):
-        pr(progress, f"Building model descriptor: {os.path.basename(model_file)}")
+        pr(progress, BUILD_DESCRIPTOR.format(os.path.basename(model_file)))
 
-        descriptor: ModelDescriptor = file_utils.generate_model_descriptor(model_file, recalculate_hash)
+        descriptor: ModelDescriptor = files.generate_model_descriptor(model_file, recalculate_hash)
 
         if not descriptor:
-            logger.error(f"Failed to build model descriptor for {os.path.basename(model_file)}")
+            logger.error(FAILED_BUILD_DESCRIPTOR.format(os.path.basename(model_file)))
             continue
 
-        file_basename = os.path.basename(descriptor.filename)
+        pr(progress, FETCHING_META.format(descriptor.file_basename))
 
-        pr(progress, f"Fetching metadata: {file_basename}")
+        civitai_model: Optional[CivitaiModel] = _fetch_latest_meta(descriptor, descriptor.file_basename)
 
-        civitai_model: Optional[CivitaiModel] = _fetch_latest_meta(descriptor, file_basename)
+        if not civitai_model or not civitai_model.images:
+            msg = f"Failed to retrieve metadata or no preview image found for {descriptor.file_basename}"
 
-        if not civitai_model:
-            logger.error(f"Failed to retrieve metadata for {file_basename}")
-            continue
-        elif not civitai_model.images:
-            logger.error(f"No preview image found for {file_basename}")
+            logger.warning(msg)
+            gr.Warning(msg)
             continue
 
-        pr(progress, f"Fetching image: {file_basename}")
+        pr(progress, f"Fetching image: {descriptor.file_basename}")
         img_bytes = rest.fetch_image_preview(civitai_model.images[0].url)
 
         if img_bytes:
-            file_utils.write_preview(descriptor.filename, img_bytes)
-            logger.info(f"Updated preview image for {file_basename}")
+            files.write_preview(descriptor.filename, img_bytes)
+            logger.info(f"Updated preview image for {descriptor.file_basename}")
         else:
-            logger.warning(f"Failed to retrieve preview image for {file_basename}")
+            logger.warning(f"Failed to retrieve preview image for {descriptor.file_basename}")
 
     pr(1.0, "Done")
     time.sleep(1.5)
-
-
-def _fetch_latest_meta(descriptor: ModelDescriptor, file_basename: str) -> Optional[CivitaiModel]:
-    civitai_model: Optional[CivitaiModel]
-
-    if not descriptor.metadata_descriptor.model_id:
-        civitai_model = rest.fetch_model_by_hash(descriptor.metadata_descriptor.hash)
-        if not civitai_model or not civitai_model.modelId:
-            logger.error(f"Failed to retrieve metadata for {file_basename}")
-            return None
-        else:
-            descriptor.metadata_descriptor.model_id = civitai_model.modelId
-
-    return rest.fetch_model_by_model_id(descriptor.metadata_descriptor.model_id)

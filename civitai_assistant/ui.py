@@ -1,8 +1,10 @@
 from collections.abc import Callable, Generator, Sequence
 from inspect import signature
-from typing import TypeVar
+from typing import Any, TypeVar
 
 import gradio as gr
+
+from civitai_assistant.utils.logger import LogLevel, logger
 
 
 T = TypeVar("T")
@@ -50,3 +52,26 @@ def create_progressable_button(
     button.click(lambda: [gr.Button(visible=False), gr.Label(visible=True)], outputs=[button, progress_label]).then(
         progressable_fn, inputs=inputs, outputs=progress_label
     ).then(lambda: [gr.Button(visible=True), gr.Label(visible=False)], outputs=[button, progress_label])
+
+
+def log_and_modal(log_level: LogLevel, message: str):
+    """
+    Logs a message and displays it in a modal dialog.
+    Args:
+        log_level (LogLevel): The log level to use when logging the message.
+        message (str): The message to log and display in the modal dialog.
+    Returns:
+        None
+    """
+    logger.log(log_level.value, message)
+    match log_level:
+        case LogLevel.INFO:
+            gr.Info(message)
+        case LogLevel.WARNING:
+            gr.Warning(message)
+        case LogLevel.ERROR:
+            gr.Error(message)
+        case LogLevel.CRITICAL:
+            gr.Error(message)
+        case _:
+            pass

@@ -2,7 +2,7 @@ import importlib.util
 import subprocess
 import sys
 
-from civitai_assistant.logger import logger
+from civitai_assistant.utils.logger import logger
 
 
 def is_package_installed(package_name):

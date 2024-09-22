@@ -25,3 +25,13 @@ ignore_missing_imports = true
 [tool.black]
 line-length = 120
 target-version = ['py310', 'py311']
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+pythonpath = [
+    "./",
+]
+testpaths = [
+    "tests",
+]

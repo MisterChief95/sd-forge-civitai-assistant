@@ -2,32 +2,36 @@ import requests
 from typing import Optional
 from urllib.parse import urlparse, urlencode
 
-from requests.exceptions import RequestException
-
 from civitai_assistant.utils.errors import get_exception_msg
-from civitai_assistant.logger import logger
+from civitai_assistant.utils.logger import logger
 from civitai_assistant.type import CivitaiModel
 
 
 API_BY_HASH = "https://civitai.com/api/v1/model-versions/by-hash/{}"
-API_BY_MODEL_ID = "https://civitai.com/api/v1/models/{}"
+API_BY_ID = "https://civitai.com/api/v1/models/{}"
 
 
 def fetch_model_by_hash(model_hash: str) -> Optional[CivitaiModel]:
     """
-    Fetches model data from the Civitai API using the provided model hash.
+    Fetches a Civitai model using its hash.
+    This function sends a request to the Civitai API to retrieve a model
+    based on the provided hash. If the request is successful and the response
+    can be validated against the CivitaiModel schema, the function returns
+    the CivitaiModel instance. If the request fails or the response cannot
+    be validated, the function returns None.
     Args:
-        model_hash (str): The hash of the model to fetch data for.
+        model_hash (str): The hash of the model to fetch.
     Returns:
-        Result[CivitaiModel]: A Result object containing either the fetched CivitaiModel data or an error.
+        Optional[CivitaiModel]: The CivitaiModel instance if the request and
+        validation are successful, otherwise None.
     """
 
-    response = send_request(API_BY_HASH.format(model_hash))
-
-    if not response:
-        return None
-
     try:
+        response = send_request(API_BY_HASH.format(model_hash))
+
+        if not response:
+            return None
+
         civitai_model = CivitaiModel.model_validate(response.json())
 
         return civitai_model
@@ -38,25 +42,24 @@ def fetch_model_by_hash(model_hash: str) -> Optional[CivitaiModel]:
         return None
 
 
-def fetch_model_by_model_id(model_id: str | int) -> Optional[CivitaiModel]:
+def fetch_model_by_id(id: str | int) -> Optional[CivitaiModel]:
     """
-    Fetches model data from the Civitai API using the provided model hash.
+    Fetches a Civitai model by its ID.
     Args:
-        model_hash (str): The hash of the model to fetch data for.
+        id (str | int): The ID of the model to fetch. Can be a string or an integer.
     Returns:
-        Result[CivitaiModel]: A Result object containing either the fetched CivitaiModel data or an error.
+        Optional[CivitaiModel]: The fetched Civitai model if successful, otherwise None.
+    Raises:
+        Exception: If there is an error converting the response to a CivitaiModel.
     """
-
-    response = send_request(API_BY_MODEL_ID.format(model_id))
-
-    if not response:
-        return None
 
     try:
-        CivitaiModel.model_validate(response.json())
-        civitai_model = CivitaiModel.model_validate(response.json())
+        response = send_request(API_BY_ID.format(id))
 
-        return civitai_model
+        if not response:
+            return None
+
+        return CivitaiModel.model_validate(response.json())
 
     except Exception as e:
         logger.error(f"Failed to convert response to CivitaiModel: {str(e)}")
@@ -66,15 +69,14 @@ def fetch_model_by_model_id(model_id: str | int) -> Optional[CivitaiModel]:
 
 def fetch_image_preview(url: str) -> Optional[bytes]:
     """
-    Sends an HTTP request to the specified URL using the provided method and headers.
+    Fetches the image preview from the given URL.
+    This function sends a request to the specified URL and attempts to retrieve
+    the image content in bytes. If the request is successful and the content is
+    in bytes, it returns the image content. Otherwise, it raises an exception.
     Args:
-        url (str): The URL to send the request to.
-        method (str): The HTTP method to use for the request (default is "GET").
-        api_token (str, optional): An optional API token to include in the request.
-        headers (dict, optional): Optional headers to include in the request.
-        stream (bool, optional): Whether to stream the response content (default is False).
+        url (str): The URL of the image to fetch.
     Returns:
-        Result[requests.Response]: A Result object containing either the response or an error.
+        Optional[bytes]: The image content in bytes if successful, otherwise None.
     """
 
     try:
@@ -83,7 +85,7 @@ def fetch_image_preview(url: str) -> Optional[bytes]:
         if response and isinstance(response.content, bytes):
             return response.content
 
-        raise Exception("Failed to fetch image preview")
+        return None
 
     except Exception as e:
         logger.error(f"Failed to fetch image preview from {url}: {get_exception_msg(e)}")
@@ -107,20 +109,14 @@ def send_request(
         headers (dict, optional): Optional headers to include in the request.
         stream (bool, optional): Whether to stream the response content (default is False).
     Returns:
-        Result[requests.Response]: A Result object containing either the response or an error.
+        requests.Response: Response from the API.
     """
     parsed_url = urlparse(url).geturl()
 
     if api_token:
         parsed_url = parsed_url + urlencode({"api_token": api_token})
 
-    try:
-        response = requests.request(method, parsed_url, headers=headers, stream=stream)
-        response.raise_for_status()
+    response = requests.request(method, parsed_url, headers=headers, stream=stream)
+    response.raise_for_status()
 
-        return response
-
-    except RequestException as e:
-        logger.error(f"Failed to send request to {url}: {str(e)}")
-
-        return None
+    return response

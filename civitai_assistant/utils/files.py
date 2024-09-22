@@ -1,55 +1,17 @@
 import hashlib
 import os
 import json
-from collections.abc import Callable
-from typing import Any, Optional
+from typing import Any
 
 from threading import Lock
 
 from cachetools import TTLCache, cached
 from cachetools.keys import hashkey
 
+from civitai_assistant.const import PREVIEW_PNG, JSON
 from civitai_assistant.utils.errors import get_exception_msg
-from civitai_assistant.logger import logger
-from civitai_assistant.type import MetadataDescriptor, ModelDescriptor, ModelType
-
-from modules import shared
-from modules.shared import cmd_opts
-from modules import sd_models
-
-
-MODEL_TYPE_TO_DIRECTORY: dict[ModelType, Callable[[], str]] = {
-    ModelType.CHECKPOINT: lambda: os.path.abspath(shared.cmd_opts.ckpt_dir or sd_models.model_path),
-    ModelType.LORA: lambda: os.path.abspath(cmd_opts.lora_dir),
-    ModelType.TEXTUAL_INVERSION: lambda: os.path.abspath(cmd_opts.embeddings_dir),
-}
-
-
-def find_model_files(model_types: list[ModelType]) -> list[str]:
-    """
-    Finds all model files of the specified types.
-    Args:
-        model_types (list[ModelType]): A list of model types to search for.
-    Returns:
-        list[str]: A list of paths to the model files.
-    """
-
-    model_files = []
-
-    for modelType in model_types:
-        model_dir: Optional[str] = MODEL_TYPE_TO_DIRECTORY.get(modelType, lambda: None)()
-        if model_dir is None:
-            logger.warning(f"Unknown or unselected model type: {modelType}")
-            continue
-
-        for root, _, files in os.walk(model_dir):
-            for file in files:
-                if file.endswith(".safetensors"):
-                    model_files.append(os.path.join(root, file))
-
-    logger.debug(f"Found {len(model_files)} models to update")
-
-    return model_files
+from civitai_assistant.utils.logger import logger
+from civitai_assistant.type import MetadataDescriptor, ModelDescriptor
 
 
 def calculate_hash(file_path: str) -> str:
@@ -64,32 +26,13 @@ def calculate_hash(file_path: str) -> str:
         FileNotFoundError: If the file does not exist at the specified path.
     """
 
-    # TODO: Determine if this actually improves performance
-    def calculate_optimal_buffer_size(file_path: str) -> int:
-        """
-        Calculates the optimal buffer size for reading a file based on its size.
-        Args:
-            file_path (str): The path to the file.
-        Returns:
-            int: The optimal buffer size.
-        """
-        file_size = os.path.getsize(file_path)
-        if file_size < 1048576:  # Less than 1MB
-            return 4096  # 4KB
-        elif file_size < 10485760:  # Less than 10MB
-            return 8192  # 8KB
-        else:
-            return 16384  # 16KB
-
-    buffer_size = calculate_optimal_buffer_size(file_path)
-
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"The file {file_path} does not exist.")
 
     sha256_hash = hashlib.sha256()
 
     with open(file_path, "rb") as file:
-        while chunk := file.read(buffer_size):
+        while chunk := file.read(8192):
             sha256_hash.update(chunk)
 
     logger.info(f"Computed hash: {os.path.basename(file_path)}")
@@ -106,7 +49,7 @@ def preview_exists(file_path: str) -> bool:
         bool: True if the descriptor has a preview image, False otherwise.
     """
 
-    return os.path.exists(os.path.splitext(file_path)[0] + ".preview.png")
+    return os.path.exists(os.path.splitext(file_path)[0] + PREVIEW_PNG)
 
 
 def write_preview(file_path: str, img_bytes: bytes) -> None:
@@ -119,8 +62,7 @@ def write_preview(file_path: str, img_bytes: bytes) -> None:
     """
 
     try:
-        img_path: str = os.path.splitext(file_path)[0] + ".preview.png"
-        with open(img_path, "wb") as img_file:
+        with open(os.path.splitext(file_path)[0] + PREVIEW_PNG, "wb") as img_file:
             img_file.write(img_bytes)
 
     except Exception as e:
@@ -136,7 +78,7 @@ def has_json(file_path: str) -> bool:
         bool: True if the descriptor has a JSON metadata file, False otherwise.
     """
 
-    return os.path.exists(os.path.splitext(file_path)[0] + ".json")
+    return os.path.exists(os.path.splitext(file_path)[0] + JSON)
 
 
 def to_json_file(file_path: str) -> str:
@@ -148,19 +90,21 @@ def to_json_file(file_path: str) -> str:
         bool: True if the descriptor has a JSON metadata file, False otherwise.
     """
 
-    return os.path.splitext(file_path)[0] + ".json"
+    return os.path.splitext(file_path)[0] + JSON
 
 
-def write_json_file(source: ModelDescriptor) -> None:
+def write_json_file(descriptor: ModelDescriptor) -> None:
     """
     Writes the metadata of a given descriptor to a JSON file.
     Args:
-        descriptor (MetadataDescriptor): An object containing metadata information.
-    The JSON file is created in the same directory as the descriptor's filename,
-    with the same base name and a .json extension.
+        descriptor (MetadataDescriptor | ModelDescriptor): The descriptor containing metadata to be written.
+            If a ModelDescriptor is provided, its metadata_descriptor attribute is used.
+    Returns:
+        None
     """
-    with open(to_json_file(source.filename), "w") as json_file:
-        json.dump(source.metadata_descriptor.model_dump(by_alias=True), json_file, indent=4)
+
+    with open(to_json_file(descriptor.filename), "w") as json_file:
+        json.dump(descriptor.metadata_descriptor.model_dump(by_alias=True), json_file, indent=4)
 
 
 def __cache_key(*args, **_) -> Any:
@@ -183,7 +127,7 @@ def generate_model_descriptor(model_file: str, recalculate_hash: bool = False) -
         ModelDescriptor: The generated model descriptor.
     """
 
-    json_file: str = os.path.splitext(model_file)[0] + ".json"
+    json_file: str = os.path.splitext(model_file)[0] + JSON
 
     if not os.path.exists(json_file):
         metadata_descriptor = MetadataDescriptor(hash=calculate_hash(model_file))
