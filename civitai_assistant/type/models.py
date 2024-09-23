@@ -12,7 +12,6 @@ class MetadataDescriptor(BaseModel):
     model_config = ConfigDict(protected_namespaces=())
 
     hash: str
-    id: Optional[int] = None
     model_id: Optional[int] = Field(default=None, alias="model id")
     description: Optional[str] = None
     sd_version: Optional[str] = Field(default="Other", alias="sd version")
@@ -25,7 +24,6 @@ class MetadataDescriptor(BaseModel):
         return hash(
             (
                 self.hash,
-                self.id,
                 self.model_id,
                 self.description,
                 self.sd_version,

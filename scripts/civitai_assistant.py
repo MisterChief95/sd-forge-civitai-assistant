@@ -17,8 +17,8 @@ def on_ui_tabs():
                 model_checkboxes = gr.CheckboxGroup([member.value for member in ModelType], label="Models")
             with gr.Row():
                 with gr.Group():
-                    overwrite_checkbox = gr.Checkbox("Overwite Existing Tags/Images")
-                    recalculate_hash = gr.Checkbox("Recalculate Hashes")
+                    overwrite_checkbox = gr.Checkbox(False, label="Overwite Existing Tags/Images")
+                    recalculate_hash = gr.Checkbox(False, label="Recalculate Hashes")
 
             inputs = [model_checkboxes, overwrite_checkbox, recalculate_hash]
             with gr.Row():

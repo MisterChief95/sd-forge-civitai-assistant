@@ -19,20 +19,6 @@ from modules.extra_networks import parse_prompt
 from modules.shared import opts
 
 
-def _fetch_latest_meta(descriptor: ModelDescriptor, file_basename: str) -> Optional[CivitaiModel]:
-    civitai_model: Optional[CivitaiModel]
-
-    if not descriptor.metadata_descriptor.model_id:
-        civitai_model = rest.fetch_model_by_hash(descriptor.metadata_descriptor.hash)
-        if not civitai_model or not civitai_model.modelId:
-            logger.error(FAILED_META.format(file_basename))
-            return None
-        else:
-            descriptor.metadata_descriptor.model_id = civitai_model.modelId
-
-    return rest.fetch_model_by_id(descriptor.metadata_descriptor.model_id)
-
-
 def update_metadata(
     modelTypes: list[ModelType], overwrite_existing: bool, recalculate_hash: bool, pr=gr.Progress()
 ) -> None:
@@ -86,14 +72,14 @@ def update_metadata(
 
         pr(progress, FETCHING_META.format(descriptor.file_basename))
 
-        civitai_model: Optional[CivitaiModel] = _fetch_latest_meta(descriptor, descriptor.file_basename)
+        civitai_model: Optional[CivitaiModel] = rest.fetch_by_hash(descriptor.metadata_descriptor.hash)
+        description = rest.fetch_model_description(civitai_model.modelId) if civitai_model else ""
 
         if not civitai_model:
             msg = FAILED_META.format(descriptor.file_basename)
             logger.error(FAILED_META.format(descriptor.file_basename))
             continue
 
-        descriptor.metadata_descriptor.id = civitai_model.id
         descriptor.metadata_descriptor.model_id = civitai_model.modelId
         descriptor.metadata_descriptor.sd_version = (
             civitai_model.baseModel if civitai_model.baseModel or civitai_model.baseModel != "Pony" else "Other"
@@ -105,11 +91,12 @@ def update_metadata(
 
         descriptor.metadata_descriptor.activation_text = activation_text
 
-        if civitai_model.description and not civitai_model.description.isspace():
-            if opts.ca_use_html_descriptions:
-                descriptor.metadata_descriptor.description = soup(civitai_model.description, "html.parser").get_text()
-            else:
-                descriptor.metadata_descriptor.description = civitai_model.description
+        if description and not description.isspace():
+            # TODO: Add HTML support
+            # if opts.ca_use_html_descriptions:
+            descriptor.metadata_descriptor.description = soup(description, "html.parser").get_text()
+            # else:
+            #     descriptor.metadata_descriptor.description = description
 
         pr(progress, f"Writing metadata: {descriptor.file_basename}")
         try:
@@ -170,7 +157,7 @@ def update_preview_images(
 
         pr(progress, FETCHING_META.format(descriptor.file_basename))
 
-        civitai_model: Optional[CivitaiModel] = _fetch_latest_meta(descriptor, descriptor.file_basename)
+        civitai_model: Optional[CivitaiModel] = rest.fetch_by_hash(descriptor.metadata_descriptor.hash)
 
         if not civitai_model or not civitai_model.images:
             msg = f"Failed to retrieve metadata or no preview image found for {descriptor.file_basename}"

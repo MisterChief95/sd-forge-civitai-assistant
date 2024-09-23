@@ -8,10 +8,10 @@ from civitai_assistant.type import CivitaiModel
 
 
 API_BY_HASH = "https://civitai.com/api/v1/model-versions/by-hash/{}"
-API_BY_ID = "https://civitai.com/api/v1/models/{}"
+API_BY_MODEL_ID = "https://civitai.com/api/v1/models/{}"
 
 
-def fetch_model_by_hash(model_hash: str) -> Optional[CivitaiModel]:
+def fetch_by_hash(model_hash: str) -> Optional[CivitaiModel]:
     """
     Fetches a Civitai model using its hash.
     This function sends a request to the Civitai API to retrieve a model
@@ -42,11 +42,11 @@ def fetch_model_by_hash(model_hash: str) -> Optional[CivitaiModel]:
         return None
 
 
-def fetch_model_by_id(id: str | int) -> Optional[CivitaiModel]:
+def fetch_model_description(model_id: str | int) -> Optional[str]:
     """
     Fetches a Civitai model by its ID.
     Args:
-        id (str | int): The ID of the model to fetch. Can be a string or an integer.
+        id (str | int): The ID of the model group to fetch. Can be a string or an integer.
     Returns:
         Optional[CivitaiModel]: The fetched Civitai model if successful, otherwise None.
     Raises:
@@ -54,15 +54,19 @@ def fetch_model_by_id(id: str | int) -> Optional[CivitaiModel]:
     """
 
     try:
-        response = send_request(API_BY_ID.format(id))
+        response = send_request(API_BY_MODEL_ID.format(model_id))
 
         if not response:
             return None
 
-        return CivitaiModel.model_validate(response.json())
+        json = response.json()
+
+        if json and json["description"]:
+            return str(json["description"])
+        return None
 
     except Exception as e:
-        logger.error(f"Failed to convert response to CivitaiModel: {str(e)}")
+        logger.error(f"Failed to read description for CivitAI model: {str(e)}")
 
         return None
 
