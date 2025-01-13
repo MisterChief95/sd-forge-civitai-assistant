@@ -6,7 +6,10 @@ from civitai_assistant.utils.logger import logger
 
 
 def is_package_installed(package_name):
-    return importlib.util.find_spec(package_name) is not None
+    spec = importlib.util.find_spec(package_name)
+    if spec is None:
+        logger.error(f"Package '{package_name}' is not installed or not found.")
+    return spec is not None
 
 
 def install_package(package_name, min_version=None, max_version=None):
@@ -18,7 +21,7 @@ def install_package(package_name, min_version=None, max_version=None):
             version_spec += f",<={max_version}"
 
         package_with_version = f"{package_name}{version_spec}"
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package_with_version])
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package_with_version, '--quiet'])
 
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to install package '{package_name}'. Error: {e}")
