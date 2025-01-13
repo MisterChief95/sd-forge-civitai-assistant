@@ -16,41 +16,32 @@ from civitai_assistant.ui import progressify_sequence
 from modules.extra_networks import parse_prompt
 
 
-NO_MODELS_FOUND: str = "No model files found"
-NO_MODELS_AFTER_FILTER: str = "No model files found after filtering"
-
 BUILD_DESCRIPTOR: str = "Building model descriptor: {0}"
-FAILED_META: str = "Failed to retrieve metadata for {0}"
-FAILED_BUILD_DESCRIPTOR: str = "Failed to build model descriptor for {0}"
-
-FETCHING_META: str = "Fetching metadata: {0}"
-
-FINDING_MODELS: str = "Finding model files"
 CHECK_OVERWRITE: str = "Checking for overwrite"
+FAILED_BUILD_DESCRIPTOR: str = "Failed to build model descriptor for {0}"
+FAILED_META: str = "Failed to retrieve metadata for {0}"
+FETCHING_META: str = "Fetching metadata: {0}"
+FINDING_MODELS: str = "Finding model files"
+NO_MODELS_AFTER_FILTER: str = "No model files found after filtering"
+NO_MODELS_FOUND: str = "No model files found"
 
 
 def update_metadata(
     modelTypes: list[ModelType],
     overwrite_existing: bool,
     recalculate_hash: bool,
+    pr: gr.Progress = gr.Progress(),  # noqa: B008
 ) -> None:
     """
-    Updates the metadata for a list of model types by building model descriptors
-    and calling an API for each descriptor. The metadata is then saved to a JSON file.
+    Updates the metadata for a list of model files.
     Args:
-        modelTypes (list[ModelType]): A list of model types to update metadata for.
+        modelTypes (list[ModelType]): A list of model types to search for.
+        overwrite_existing (bool): If True, existing metadata will be overwritten.
+        recalculate_hash (bool): If True, the hash for each model will be recalculated.
+        pr (gr.Progress, optional): A progress indicator. Defaults to gr.Progress().
     Returns:
         None
-    Raises:
-        None
-    Notes:
-        - The function determines the directory for each model type and builds model descriptors.
-        - It then calls an API for each descriptor and saves the metadata to a JSON file.
-        - If an unknown model type is encountered, it prints an error message.
-        - If no model directory is selected, it prints an error message and returns.
     """
-
-    pr = gr.Progress()
 
     pr(0.1, "Finding model files")
     model_files: list[str] = sd_path.find_model_files(modelTypes)
@@ -142,20 +133,18 @@ def update_preview_images(
     modelTypes: list[ModelType],
     overwrite_existing: bool,
     recalculate_hash: bool,
+    pr: gr.Progress = gr.Progress(),  # noqa: B008
 ) -> None:
     """
-    Updates the preview image for a given model descriptor by calling the Civitai API.
+    Updates the preview images for the given model types.
     Args:
-        model_descriptor (ModelDescriptor): The descriptor of the model for which the preview image is to be updated.
+        modelTypes (list[ModelType]): A list of model types to update preview images for.
+        overwrite_existing (bool): If True, overwrite existing preview images.
+        recalculate_hash (bool): If True, recalculate the hash for the model files.
+        pr (gr.Progress, optional): A progress indicator. Defaults to gr.Progress().
     Returns:
         None
-    Raises:
-        requests.exceptions.RequestException: If there is an issue with the HTTP request.
-    Notes:
-        - If the API call fails or the image retrieval fails, an error message is printed.
     """
-
-    pr = gr.Progress()
 
     pr(0.1, FINDING_MODELS)
     model_files: list[str] = sd_path.find_model_files(modelTypes)
