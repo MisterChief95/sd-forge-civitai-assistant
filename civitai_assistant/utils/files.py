@@ -11,7 +11,7 @@ from cachetools.keys import hashkey
 from civitai_assistant.const import PREVIEW_PNG, JSON
 from civitai_assistant.utils.errors import get_exception_msg
 from civitai_assistant.utils.logger import logger
-from civitai_assistant.type import MetadataDescriptor, ModelDescriptor
+from civitai_assistant.types import MetadataDescriptor, ModelDescriptor
 
 
 def calculate_hash(file_path: str) -> str:
@@ -104,7 +104,11 @@ def write_json_file(descriptor: ModelDescriptor) -> None:
     """
 
     with open(to_json_file(descriptor.filename), "w") as json_file:
-        json.dump(descriptor.metadata_descriptor.model_dump(by_alias=True), json_file, indent=4)
+        json.dump(
+            descriptor.metadata_descriptor.model_dump(by_alias=True),
+            json_file,
+            indent=4,
+        )
 
 
 def __cache_key(*args, **_) -> Any:
@@ -112,7 +116,9 @@ def __cache_key(*args, **_) -> Any:
 
 
 @cached(cache=TTLCache(maxsize=32, ttl=300), key=__cache_key, lock=Lock())
-def generate_model_descriptor(model_file: str, recalculate_hash: bool = False) -> ModelDescriptor:
+def generate_model_descriptor(
+    model_file: str, recalculate_hash: bool = False
+) -> ModelDescriptor:
     """
     Generates a model descriptor for the given model file.
     This function creates a `ModelDescriptor` object for the specified model file.
@@ -137,7 +143,9 @@ def generate_model_descriptor(model_file: str, recalculate_hash: bool = False) -
             if not metadata_descriptor.hash or recalculate_hash:
                 metadata_descriptor.hash = calculate_hash(model_file)
 
-    model_descriptor = ModelDescriptor(metadata_descriptor=metadata_descriptor, filename=model_file)
+    model_descriptor = ModelDescriptor(
+        metadata_descriptor=metadata_descriptor, filename=model_file
+    )
 
     # Write the file so we don't have to recompute the hash
     write_json_file(model_descriptor)

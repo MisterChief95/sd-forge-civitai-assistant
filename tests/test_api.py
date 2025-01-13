@@ -4,11 +4,13 @@ import requests
 from typing import Any, Optional
 
 import civitai_assistant.api as api
-from civitai_assistant.type import CivitaiModel
+from civitai_assistant.types import CivitaiModel
 
 
 class MockResponse:
-    def __init__(self, status_code: int, json: dict[Any, Any] = None, content: bytes | Any = None) -> None:
+    def __init__(
+        self, status_code: int, json: dict[Any, Any] = None, content: bytes | Any = None
+    ) -> None:
         self.status_code: int = status_code
         self.resp_json: dict[Any, Any] = json
         self.content: bytes | Any = content
@@ -24,8 +26,24 @@ class MockResponse:
 @pytest.mark.parametrize(
     "status,json",
     [
-        (200, {"id": "1234", "modelId": "5678", "images": [{"url": "url", "nsfwLevel": 1, "hasMeta": True}]}),
-        (200, {"id": "1234", "modelId": "5678", "baseModel": "SDXL1.0", "images": [], "description": "test"}),
+        (
+            200,
+            {
+                "id": "1234",
+                "modelId": "5678",
+                "images": [{"url": "url", "nsfwLevel": 1, "hasMeta": True}],
+            },
+        ),
+        (
+            200,
+            {
+                "id": "1234",
+                "modelId": "5678",
+                "baseModel": "SDXL1.0",
+                "images": [],
+                "description": "test",
+            },
+        ),
         (500, None),
     ],
 )
@@ -40,7 +58,9 @@ def test_fetch_model_by_hash(status, json, monkeypatch):
         assert civitai_model is None, f"civitai_model is not None for status {status}"
         return
 
-    assert isinstance(civitai_model, CivitaiModel), "received obj that is not CivitaiModel"
+    assert isinstance(
+        civitai_model, CivitaiModel
+    ), "received obj that is not CivitaiModel"
     assert civitai_model.modelId == 5678, "modelId is not 5678"
     assert civitai_model.images is not None, "images cannot be None"
 
@@ -78,7 +98,9 @@ def test_fetch_image_preview(status, content, monkeypatch):
 
     monkeypatch.setattr(requests, "request", mock_request)
 
-    image_content: Optional[bytes] = api.fetch_image_preview("http://example.com/image.png")
+    image_content: Optional[bytes] = api.fetch_image_preview(
+        "http://example.com/image.png"
+    )
 
     if status >= 400:
         assert image_content is None, f"image_content is not None for status {status}"

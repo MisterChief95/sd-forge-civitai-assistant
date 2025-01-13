@@ -4,7 +4,7 @@ from urllib.parse import urlparse, urlencode
 
 from civitai_assistant.utils.errors import get_exception_msg
 from civitai_assistant.utils.logger import logger
-from civitai_assistant.type import CivitaiModel
+from civitai_assistant.types import CivitaiModel
 
 
 API_BY_HASH = "https://civitai.com/api/v1/model-versions/by-hash/{}"
@@ -92,7 +92,9 @@ def fetch_image_preview(url: str) -> Optional[bytes]:
         return None
 
     except Exception as e:
-        logger.error(f"Failed to fetch image preview from {url}: {get_exception_msg(e)}")
+        logger.error(
+            f"Failed to fetch image preview from {url}: {get_exception_msg(e)}"
+        )
 
         return None
 

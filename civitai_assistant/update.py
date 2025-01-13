@@ -9,18 +9,30 @@ from bs4 import BeautifulSoup as soup
 import civitai_assistant.api as rest
 import civitai_assistant.utils.files as files
 import civitai_assistant.utils.sd_path as sd_path
-from civitai_assistant.const import *
 from civitai_assistant.utils.logger import logger
-from civitai_assistant.type import CivitaiModel, ModelDescriptor, ModelType
+from civitai_assistant.types import CivitaiModel, ModelDescriptor, ModelType
 from civitai_assistant.ui import progressify_sequence
 
-
 from modules.extra_networks import parse_prompt
-from modules.shared import opts
+
+
+NO_MODELS_FOUND: str = "No model files found"
+NO_MODELS_AFTER_FILTER: str = "No model files found after filtering"
+
+BUILD_DESCRIPTOR: str = "Building model descriptor: {0}"
+FAILED_META: str = "Failed to retrieve metadata for {0}"
+FAILED_BUILD_DESCRIPTOR: str = "Failed to build model descriptor for {0}"
+
+FETCHING_META: str = "Fetching metadata: {0}"
+
+FINDING_MODELS: str = "Finding model files"
+CHECK_OVERWRITE: str = "Checking for overwrite"
 
 
 def update_metadata(
-    modelTypes: list[ModelType], overwrite_existing: bool, recalculate_hash: bool, pr=gr.Progress()
+    modelTypes: list[ModelType],
+    overwrite_existing: bool,
+    recalculate_hash: bool,
 ) -> None:
     """
     Updates the metadata for a list of model types by building model descriptors
@@ -37,6 +49,8 @@ def update_metadata(
         - If an unknown model type is encountered, it prints an error message.
         - If no model directory is selected, it prints an error message and returns.
     """
+
+    pr = gr.Progress()
 
     pr(0.1, "Finding model files")
     model_files: list[str] = sd_path.find_model_files(modelTypes)
@@ -59,10 +73,14 @@ def update_metadata(
         time.sleep(1.5)
         return
 
-    for model_file, progress in progressify_sequence(model_files, lower_bound=0.2, upper_bound=0.9):
+    for model_file, progress in progressify_sequence(
+        model_files, lower_bound=0.2, upper_bound=0.9
+    ):
         pr(progress, BUILD_DESCRIPTOR.format(os.path.basename(model_file)))
 
-        descriptor: ModelDescriptor = files.generate_model_descriptor(model_file, recalculate_hash)
+        descriptor: ModelDescriptor = files.generate_model_descriptor(
+            model_file, recalculate_hash
+        )
 
         if not descriptor:
             msg = FAILED_BUILD_DESCRIPTOR.format(os.path.basename(model_file))
@@ -72,8 +90,12 @@ def update_metadata(
 
         pr(progress, FETCHING_META.format(descriptor.file_basename))
 
-        civitai_model: Optional[CivitaiModel] = rest.fetch_by_hash(descriptor.metadata_descriptor.hash)
-        description = rest.fetch_model_description(civitai_model.modelId) if civitai_model else ""
+        civitai_model: Optional[CivitaiModel] = rest.fetch_by_hash(
+            descriptor.metadata_descriptor.hash
+        )
+        description = (
+            rest.fetch_model_description(civitai_model.modelId) if civitai_model else ""
+        )
 
         if not civitai_model:
             msg = FAILED_META.format(descriptor.file_basename)
@@ -82,10 +104,14 @@ def update_metadata(
 
         descriptor.metadata_descriptor.model_id = civitai_model.modelId
         descriptor.metadata_descriptor.sd_version = (
-            civitai_model.baseModel if civitai_model.baseModel or civitai_model.baseModel != "Pony" else "Other"
+            civitai_model.baseModel
+            if civitai_model.baseModel or civitai_model.baseModel != "Pony"
+            else "Other"
         )
 
-        activation_text: str = ", ".join(civitai_model.trainedWords) if civitai_model.trainedWords else ""
+        activation_text: str = (
+            ", ".join(civitai_model.trainedWords) if civitai_model.trainedWords else ""
+        )
         if activation_text:
             activation_text = parse_prompt(activation_text)[0]
 
@@ -94,7 +120,9 @@ def update_metadata(
         if description and not description.isspace():
             # TODO: Add HTML support
             # if opts.ca_use_html_descriptions:
-            descriptor.metadata_descriptor.description = soup(description, "html.parser").get_text()
+            descriptor.metadata_descriptor.description = soup(
+                description, "html.parser"
+            ).get_text()
             # else:
             #     descriptor.metadata_descriptor.description = description
 
@@ -111,7 +139,9 @@ def update_metadata(
 
 
 def update_preview_images(
-    modelTypes: list[ModelType], overwrite_existing: bool, recalculate_hash: bool, pr=gr.Progress()
+    modelTypes: list[ModelType],
+    overwrite_existing: bool,
+    recalculate_hash: bool,
 ) -> None:
     """
     Updates the preview image for a given model descriptor by calling the Civitai API.
@@ -124,6 +154,8 @@ def update_preview_images(
     Notes:
         - If the API call fails or the image retrieval fails, an error message is printed.
     """
+
+    pr = gr.Progress()
 
     pr(0.1, FINDING_MODELS)
     model_files: list[str] = sd_path.find_model_files(modelTypes)
@@ -146,10 +178,14 @@ def update_preview_images(
         time.sleep(1.5)
         return
 
-    for model_file, progress in progressify_sequence(model_files, lower_bound=0.2, upper_bound=0.9):
+    for model_file, progress in progressify_sequence(
+        model_files, lower_bound=0.2, upper_bound=0.9
+    ):
         pr(progress, BUILD_DESCRIPTOR.format(os.path.basename(model_file)))
 
-        descriptor: ModelDescriptor = files.generate_model_descriptor(model_file, recalculate_hash)
+        descriptor: ModelDescriptor = files.generate_model_descriptor(
+            model_file, recalculate_hash
+        )
 
         if not descriptor:
             logger.error(FAILED_BUILD_DESCRIPTOR.format(os.path.basename(model_file)))
@@ -157,7 +193,9 @@ def update_preview_images(
 
         pr(progress, FETCHING_META.format(descriptor.file_basename))
 
-        civitai_model: Optional[CivitaiModel] = rest.fetch_by_hash(descriptor.metadata_descriptor.hash)
+        civitai_model: Optional[CivitaiModel] = rest.fetch_by_hash(
+            descriptor.metadata_descriptor.hash
+        )
 
         if not civitai_model or not civitai_model.images:
             msg = f"Failed to retrieve metadata or no preview image found for {descriptor.file_basename}"
@@ -167,13 +205,21 @@ def update_preview_images(
             continue
 
         pr(progress, f"Fetching image: {descriptor.file_basename}")
-        img_bytes = rest.fetch_image_preview(civitai_model.images[0].url)
+
+        first_image = next(filter(lambda image_data: image_data.type == "image"), None)
+        if not first_image or not first_image.url:
+            logger.warning(f"No image found for {descriptor.file_basename}")
+            continue
+
+        img_bytes = rest.fetch_image_preview(first_image.url)
 
         if img_bytes:
             files.write_preview(descriptor.filename, img_bytes)
             logger.info(f"Updated preview image for {descriptor.file_basename}")
         else:
-            logger.warning(f"Failed to retrieve preview image for {descriptor.file_basename}")
+            logger.warning(
+                f"Failed to retrieve preview image for {descriptor.file_basename}"
+            )
 
     pr(1.0, "Done")
     time.sleep(1.5)

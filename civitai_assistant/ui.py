@@ -1,6 +1,6 @@
 from collections.abc import Callable, Generator, Sequence
 from inspect import signature
-from typing import Any, TypeVar
+from typing import TypeVar
 
 import gradio as gr
 
@@ -28,7 +28,9 @@ def progressify_sequence(
 
 
 def create_progressable_button(
-    button_text: str, progressable_fn: Callable[[], None], inputs: list[gr.components.Component] = []
+    button_text: str,
+    progressable_fn: Callable[[], None],
+    inputs: list[gr.components.Component] = None,
 ):
     """
     Creates a button that shows a progress label when clicked and executes a given function.
@@ -43,15 +45,22 @@ def create_progressable_button(
     """
 
     assert any(
-        isinstance(param.default, gr.Progress) for param in signature(progressable_fn).parameters.values()
+        isinstance(param.default, gr.Progress)
+        for param in signature(progressable_fn).parameters.values()
     ), f"Function '{progressable_fn.__name__}' must have a parameter with default value of gr.Progress()"
 
     button = gr.Button(button_text)
-    progress_label = gr.Label("", visible=False, label="Processing change", show_label=True)
+    progress_label = gr.Label(
+        "", visible=False, label="Processing change", show_label=True
+    )
 
-    button.click(lambda: [gr.Button(visible=False), gr.Label(visible=True)], outputs=[button, progress_label]).then(
-        progressable_fn, inputs=inputs, outputs=progress_label
-    ).then(lambda: [gr.Button(visible=True), gr.Label(visible=False)], outputs=[button, progress_label])
+    button.click(
+        lambda: [gr.Button(visible=False), gr.Label(visible=True)],
+        outputs=[button, progress_label],
+    ).then(progressable_fn, inputs=inputs, outputs=progress_label).then(
+        lambda: [gr.Button(visible=True), gr.Label(visible=False)],
+        outputs=[button, progress_label],
+    )
 
 
 def log_and_modal(log_level: LogLevel, message: str):

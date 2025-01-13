@@ -18,14 +18,15 @@ def install_package(package_name, min_version=None, max_version=None):
             version_spec += f",<={max_version}"
 
         package_with_version = f"{package_name}{version_spec}"
-        subprocess.check_call([sys.executable, "-m", "pip", "install", package_with_version])
+        subprocess.check_call(
+            [sys.executable, "-m", "pip", "install", package_with_version]
+        )
 
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to install package '{package_name}'. Error: {e}")
 
 
 def install():
-
     # requirements
     deps = [
         ("beautifulsoup4", "4.11.1", None),
