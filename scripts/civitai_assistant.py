@@ -1,6 +1,6 @@
 import gradio as gr
 
-from civitai_assistant.type import ModelType
+from civitai_assistant.types import ModelType
 from civitai_assistant.update import update_metadata, update_preview_images
 from civitai_assistant.ui import create_progressable_button
 
@@ -14,17 +14,25 @@ def on_ui_tabs():
             with gr.Row():
                 gr.HTML("<center><h1>Civitai Assistant</h1></center>")
             with gr.Row():
-                model_checkboxes = gr.CheckboxGroup([member.value for member in ModelType], label="Models")
+                model_checkboxes = gr.CheckboxGroup(
+                    [member.value for member in ModelType], label="Models"
+                )
             with gr.Row():
                 with gr.Group():
-                    overwrite_checkbox = gr.Checkbox(False, label="Overwite Existing Tags/Images")
+                    overwrite_checkbox = gr.Checkbox(
+                        False, label="Overwite Existing Tags/Images"
+                    )
                     recalculate_hash = gr.Checkbox(False, label="Recalculate Hashes")
 
             inputs = [model_checkboxes, overwrite_checkbox, recalculate_hash]
             with gr.Row():
-                create_progressable_button("Update Tags", update_metadata, inputs=inputs)
+                create_progressable_button(
+                    "Update Tags", update_metadata, inputs=inputs
+                )
             with gr.Row():
-                create_progressable_button("Update Preview Images", update_preview_images, inputs=inputs)
+                create_progressable_button(
+                    "Update Preview Images", update_preview_images, inputs=inputs
+                )
             with gr.Row():
                 # TODO: Implement the check for updates functionality
                 gr.Button("Check For Updates", interactive=False)
@@ -36,10 +44,12 @@ def on_ui_settings():
     CIVITAI_ASSISTANT_SECTION = ("civitai_assistant", "CivitAI Assistant")
 
     ca_options = {
-        "ca_use_html_descriptions": shared.OptionInfo(False, "Save HTML Descriptions").info(
-            "Save HTML descriptions for models."
+        "ca_use_html_descriptions": shared.OptionInfo(
+            False, "Save HTML Descriptions"
+        ).info("Save HTML descriptions for models."),
+        "ca_api_key": shared.OptionInfo("", "CivitAI API Key").info(
+            "Used for downloading models from CivitAI."
         ),
-        "ca_api_key": shared.OptionInfo("", "CivitAI API Key").info("Used for downloading models from CivitAI."),
     }
 
     # Add normal settings
