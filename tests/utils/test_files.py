@@ -2,12 +2,11 @@ import os
 from tempfile import NamedTemporaryFile
 
 import civitai_assistant.utils.files as files
-from civitai_assistant.type import ModelDescriptor
+from civitai_assistant.types import ModelDescriptor
 from civitai_assistant.const import SAFETENSORS, JSON
 
 
 def test_generate_model_descriptor():
-
     file = NamedTemporaryFile(delete=False, suffix=SAFETENSORS)
 
     model_descriptor: ModelDescriptor = files.generate_model_descriptor(file.name)

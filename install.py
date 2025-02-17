@@ -28,7 +28,6 @@ def install_package(package_name, min_version=None, max_version=None):
 
 
 def install():
-
     # requirements
     deps = [
         ("beautifulsoup4", "4.11.1", None),

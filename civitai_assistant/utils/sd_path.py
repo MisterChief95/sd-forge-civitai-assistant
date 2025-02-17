@@ -4,7 +4,7 @@ from typing import Optional
 
 from civitai_assistant.const import SAFETENSORS
 from civitai_assistant.utils.logger import logger
-from civitai_assistant.type import ModelType
+from civitai_assistant.types import ModelType
 
 from modules.shared import cmd_opts
 from modules.sd_models import model_path
@@ -29,7 +29,9 @@ def find_model_files(model_types: list[ModelType]) -> list[str]:
     model_files = []
 
     for modelType in model_types:
-        model_dir: Optional[str] = MODEL_TYPE_TO_DIRECTORY.get(modelType, lambda: None)()
+        model_dir: Optional[str] = MODEL_TYPE_TO_DIRECTORY.get(
+            modelType, lambda: None
+        )()
         if model_dir is None:
             logger.warning(f"Unknown or unselected model type: {modelType}")
             continue
