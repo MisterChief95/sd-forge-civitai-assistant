@@ -195,7 +195,7 @@ def update_preview_images(
 
         pr(progress, f"Fetching image: {descriptor.file_basename}")
 
-        first_image = next(filter(lambda image_data: image_data.type == "image"), None)
+        first_image = next(filter(lambda image_data: image_data.type == "image", civitai_model.images), None)
         if not first_image or not first_image.url:
             logger.warning(f"No image found for {descriptor.file_basename}")
             continue
