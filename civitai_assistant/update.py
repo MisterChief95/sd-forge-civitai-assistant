@@ -6,7 +6,7 @@ from typing import Callable, Any
 import gradio as gr
 from bs4 import BeautifulSoup as soup
 
-from civitai_assistant.api import CivitaiAPI, get_api_instance
+import civitai_assistant.api as api
 import civitai_assistant.utils.files as files
 import civitai_assistant.utils.sd_path as sd_path
 from civitai_assistant.utils.logger import logger
@@ -20,7 +20,7 @@ async def process_models_async(
     model_types: list[ModelType],
     overwrite_existing: bool,
     recalculate_hash: bool,
-    processor_fn: Callable[[ModelDescriptor, CivitaiModel, Any], None],
+    processor_fn: Callable[[ModelDescriptor, CivitaiModel], None],
     pr: gr.Progress,
     filter_fn: Callable[[str], bool] = None,
     batch_size: int = 5,
@@ -39,9 +39,6 @@ async def process_models_async(
     """
 
     api_key = opts.data.get("ca_api_key", None)
-
-    # Create API instance
-    api = get_api_instance(api_key)
 
     # Find model files
     pr(0.1, "Finding model files")
@@ -88,46 +85,58 @@ async def process_models_async(
         progress_end = 0.3 + ((i + len(batch)) / total_models) * 0.6
         batch_progress = progress_start
 
-        # Fetch model data for the batch
-        pr(
-            batch_progress,
-            f"Fetching metadata for batch {i // batch_size + 1}/{(total_models - 1) // batch_size + 1}",
-        )
-        model_hashes = [d.metadata_descriptor.hash for d in batch]
-        civitai_models = await api.fetch_multiple_by_hash(model_hashes)
-
-        # Process each model in the batch
-        for descriptor in batch:
-            model_hash = descriptor.metadata_descriptor.hash
-            civitai_model = civitai_models.get(model_hash)
-
-            batch_progress = progress_start + (batch.index(descriptor) / len(batch)) * (
-                progress_end - progress_start
+        try:
+            # Fetch model data for the batch
+            pr(
+                batch_progress,
+                f"Fetching metadata for batch {i // batch_size + 1}/{(total_models - 1) // batch_size + 1}",
             )
-            pr(batch_progress, f"Processing {descriptor.file_basename}")
+            model_hashes = [d.metadata_descriptor.hash for d in batch]
+            civitai_models = await api.fetch_multiple_by_hash(model_hashes, api_key)
 
-            if not civitai_model:
-                logger.error(
-                    f"Failed to retrieve metadata for {descriptor.file_basename}"
+            # Process each model in the batch
+            for descriptor in batch:
+                model_hash = descriptor.metadata_descriptor.hash
+                civitai_model = civitai_models.get(model_hash)
+
+                batch_progress = progress_start + (batch.index(descriptor) / len(batch)) * (
+                    progress_end - progress_start
                 )
-                continue
+                pr(batch_progress, f"Processing {descriptor.file_basename}")
 
-            # Process the model
-            await processor_fn(api, descriptor, civitai_model)
+                if not civitai_model:
+                    logger.error(
+                        f"Failed to retrieve metadata for {descriptor.file_basename}"
+                    )
+                    continue
+
+                # Process the model
+                try:
+                    await processor_fn(descriptor, civitai_model)
+                except Exception as e:
+                    logger.error(f"Error processing {descriptor.file_basename}: {str(e)}")
+                    continue
+        except Exception as e:
+            logger.error(f"Error processing batch: {str(e)}")
+            continue
+        
+        # Give a small delay between batches to let resources clean up
+        await asyncio.sleep(0.5)
 
     pr(1.0, "Done")
     time.sleep(1.5)
 
 
 async def metadata_processor_async(
-    api: CivitaiAPI,
     descriptor: ModelDescriptor,
     civitai_model: CivitaiModel,
 ) -> None:
     """Process a model to update its metadata asynchronously."""
+    api_key = opts.data.get("ca_api_key", None)
+    
     # Fetch additional description
     description = (
-        await api.fetch_model_description(civitai_model.modelId)
+        await api.fetch_model_description(civitai_model.modelId, api_key)
         if civitai_model
         else ""
     )
@@ -163,7 +172,6 @@ async def metadata_processor_async(
 
 
 async def image_processor_async(
-    api: CivitaiAPI,
     descriptor: ModelDescriptor,
     civitai_model: CivitaiModel,
 ) -> None:
@@ -202,7 +210,15 @@ def update_metadata(
     pr: gr.Progress = gr.Progress(),  # noqa: B008
 ) -> None:
     """Updates metadata for model files."""
-    asyncio.run(
+    # Get the current event loop or create a new one if needed
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    # Run the async function without closing the loop afterward
+    loop.run_until_complete(
         process_models_async(
             model_types=model_types,
             overwrite_existing=overwrite_existing,
@@ -221,7 +237,15 @@ def update_preview_images(
     pr: gr.Progress = gr.Progress(),  # noqa: B008
 ) -> None:
     """Updates preview images for model files."""
-    asyncio.run(
+    # Get the current event loop or create a new one if needed
+    try:
+        loop = asyncio.get_event_loop()
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+    
+    # Run the async function without closing the loop afterward
+    loop.run_until_complete(
         process_models_async(
             model_types=model_types,
             overwrite_existing=overwrite_existing,
