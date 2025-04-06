@@ -1,7 +1,7 @@
 import os
 import time
 import asyncio
-from typing import Callable, Any
+from typing import Callable
 
 import gradio as gr
 from bs4 import BeautifulSoup as soup
@@ -99,9 +99,9 @@ async def process_models_async(
                 model_hash = descriptor.metadata_descriptor.hash
                 civitai_model = civitai_models.get(model_hash)
 
-                batch_progress = progress_start + (batch.index(descriptor) / len(batch)) * (
-                    progress_end - progress_start
-                )
+                batch_progress = progress_start + (
+                    batch.index(descriptor) / len(batch)
+                ) * (progress_end - progress_start)
                 pr(batch_progress, f"Processing {descriptor.file_basename}")
 
                 if not civitai_model:
@@ -114,12 +114,14 @@ async def process_models_async(
                 try:
                     await processor_fn(descriptor, civitai_model)
                 except Exception as e:
-                    logger.error(f"Error processing {descriptor.file_basename}: {str(e)}")
+                    logger.error(
+                        f"Error processing {descriptor.file_basename}: {str(e)}"
+                    )
                     continue
         except Exception as e:
             logger.error(f"Error processing batch: {str(e)}")
             continue
-        
+
         # Give a small delay between batches to let resources clean up
         await asyncio.sleep(0.5)
 
@@ -133,7 +135,7 @@ async def metadata_processor_async(
 ) -> None:
     """Process a model to update its metadata asynchronously."""
     api_key = opts.data.get("ca_api_key", None)
-    
+
     # Fetch additional description
     description = (
         await api.fetch_model_description(civitai_model.modelId, api_key)
@@ -216,7 +218,7 @@ def update_metadata(
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
+
     # Run the async function without closing the loop afterward
     loop.run_until_complete(
         process_models_async(
@@ -243,7 +245,7 @@ def update_preview_images(
     except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
-    
+
     # Run the async function without closing the loop afterward
     loop.run_until_complete(
         process_models_async(

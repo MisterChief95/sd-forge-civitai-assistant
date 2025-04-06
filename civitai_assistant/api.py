@@ -93,7 +93,9 @@ async def _send_request(
             await session.close()
 
 
-async def fetch_by_hash(model_hash: str, api_key: Optional[str] = None) -> Optional[CivitaiModel]:
+async def fetch_by_hash(
+    model_hash: str, api_key: Optional[str] = None
+) -> Optional[CivitaiModel]:
     """
     Fetch a model version by its hash.
 
@@ -117,7 +119,9 @@ async def fetch_by_hash(model_hash: str, api_key: Optional[str] = None) -> Optio
         return None
 
 
-async def fetch_model_description(model_id: Union[str, int], api_key: Optional[str] = None) -> Optional[str]:
+async def fetch_model_description(
+    model_id: Union[str, int], api_key: Optional[str] = None
+) -> Optional[str]:
     """
     Fetch a model's description by its ID.
 
@@ -189,7 +193,7 @@ async def fetch_multiple_by_hash(
 
 
 async def fetch_multiple_image_previews(
-    image_urls: List[str]
+    image_urls: List[str],
 ) -> Dict[str, Optional[bytes]]:
     """
     Fetch multiple image previews concurrently.
