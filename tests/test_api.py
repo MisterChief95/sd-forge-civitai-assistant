@@ -58,9 +58,9 @@ def test_fetch_model_by_hash(status, json, monkeypatch):
         assert civitai_model is None, f"civitai_model is not None for status {status}"
         return
 
-    assert isinstance(
-        civitai_model, CivitaiModel
-    ), "received obj that is not CivitaiModel"
+    assert isinstance(civitai_model, CivitaiModel), (
+        "received obj that is not CivitaiModel"
+    )
     assert civitai_model.modelId == 5678, "modelId is not 5678"
     assert civitai_model.images is not None, "images cannot be None"
 
