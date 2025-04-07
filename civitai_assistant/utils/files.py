@@ -151,3 +151,26 @@ def generate_model_descriptor(
     write_json_file(model_descriptor)
 
     return model_descriptor
+
+
+def filter_model_descriptors(
+    model_descriptors: list[ModelDescriptor], filter_fn, overwrite_existing=False
+):
+    """
+    Filter model descriptors based on a provided filter function.
+
+    Args:
+        descriptors (list[ModelDescriptor]): List of model descriptors to filter.
+        filter_fn (callable, optional): A function that takes a ModelDescriptor and returns
+            a boolean indicating whether to include it. If None, default_filter is used.
+        default_filter (callable, optional): Default filter function used when filter_fn is None.
+        overwrite_existing (bool, optional): If True, all descriptors are returned regardless of filter.
+            Defaults to False.
+
+    Returns:
+        list[ModelDescriptor]: Filtered list of model descriptors.
+    """
+    if overwrite_existing:
+        return model_descriptors
+
+    return [d for d in model_descriptors if filter_fn(d)]

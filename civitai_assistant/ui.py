@@ -47,7 +47,9 @@ def create_progressable_button(
     assert any(
         isinstance(param.default, gr.Progress)
         for param in signature(progressable_fn).parameters.values()
-    ), f"Function '{progressable_fn.__name__}' must have a parameter with default value of gr.Progress()"
+    ), (
+        f"Function '{progressable_fn.__name__}' must have a parameter with default value of gr.Progress()"
+    )
 
     button = gr.Button(button_text)
     progress_label = gr.Label(
