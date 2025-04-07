@@ -10,19 +10,114 @@ import civitai_assistant.api as api
 import civitai_assistant.utils.files as files
 import civitai_assistant.utils.sd_path as sd_path
 from civitai_assistant.utils.logger import logger
-from civitai_assistant.types import CivitaiModel, ModelDescriptor, ModelType
+from civitai_assistant.types import (
+    CivitaiModel,
+    ModelDescriptor,
+    ModelType,
+    UpdateOptions,
+    UpdateType,
+)
 
 from modules.extra_networks import parse_prompt
 from modules.shared import opts
 
 
-async def process_models_async(
+class ProgressWrapper:
+    """
+    A wrapper class that scales progress values between a start and end range.
+    This class is used to map a progress fraction (0.0-1.0) to a specific range
+    of progress values (start_progress to end_progress). This is useful when a
+    process is a sub-step of a larger process and you want to report progress
+    relative to the overall process.
+    Parameters:
+    ----------
+    pr : callable
+        The progress reporting function to be called with the scaled progress value.
+    start_progress : float
+        The starting value of the progress range (corresponds to fraction=0.0).
+    end_progress : float
+        The ending value of the progress range (corresponds to fraction=1.0).
+    Methods:
+    -------
+    __call__(fraction=None, description="")
+        Report progress by scaling the fraction to the defined progress range.
+        Parameters:
+        fraction : float, optional
+            Current progress as a value between 0.0 and 1.0. If None, uses start_progress.
+        description : str, optional
+            Description text to accompany the progress update.
+    """
+
+    def __init__(self, pr, start_progress, end_progress):
+        self.start_progress = start_progress
+        self.end_progress = end_progress
+        self.pr = pr
+
+    def __call__(self, fraction=None, description=""):
+        if fraction is None:
+            scaled_progress = self.start_progress
+        else:
+            scaled_progress = self.start_progress + (
+                fraction * (self.end_progress - self.start_progress)
+            )
+        self.pr(scaled_progress, description)
+
+
+def find_and_build_model_descriptors(
     model_types: list[ModelType],
-    overwrite_existing: bool,
     recalculate_hash: bool,
+    pr: gr.Progress,
+) -> list[ModelDescriptor]:
+    """
+    Find model files and build model descriptors.
+
+    Args:
+        model_types: Types of models to process
+        overwrite_existing: Whether to overwrite existing files
+        recalculate_hash: Whether to recalculate model hashes
+        pr: Gradio progress component
+        filter_fn: Optional function to filter model files
+
+    Returns:
+        List of ModelDescriptor objects
+    """
+    # Find model files
+    pr(0.1, "Finding model files")
+    model_files: list[str] = sd_path.find_model_files(model_types)
+
+    if not model_files:
+        logger.info("No models found")
+        gr.Info("No models found")
+        pr(fraction=1.0, description="No models found")
+        time.sleep(1.5)
+        return []
+
+    if not model_files:
+        logger.info("No models after filtering")
+        gr.Info("No models found")
+        pr(fraction=1.0, description="Done")
+        time.sleep(1.5)
+        return []
+
+    # Build model descriptors
+    pr(0.3, "Building model descriptors")
+    model_descriptors = []
+    for model_file in model_files:
+        try:
+            descriptor = files.generate_model_descriptor(model_file, recalculate_hash)
+            model_descriptors.append(descriptor)
+        except Exception as e:
+            msg = f"Failed to build model descriptor for {os.path.basename(model_file)}: {str(e)}"
+            logger.error(msg)
+            gr.Warning(msg)
+
+    return model_descriptors
+
+
+async def process_models_async(
+    model_descriptors: list[ModelDescriptor],
     processor_fn: Callable[[ModelDescriptor, CivitaiModel], None],
     pr: gr.Progress,
-    filter_fn: Callable[[str], bool] = None,
     batch_size: int = 5,
 ) -> None:
     """
@@ -37,43 +132,10 @@ async def process_models_async(
         batch_size: Number of models to process in parallel
         pr: Gradio progress component
     """
-
     api_key = opts.data.get("ca_api_key", None)
 
-    # Find model files
-    pr(0.1, "Finding model files")
-    model_files: list[str] = sd_path.find_model_files(model_types)
-
-    if not model_files:
-        logger.info("No models found")
-        gr.Info("No models found")
-        pr(1.0, "No models found")
-        time.sleep(1.5)
+    if not model_descriptors:
         return
-
-    # Filter based on overwrite preference
-    pr(0.2, "Checking for overwrite")
-    if not overwrite_existing and filter_fn:
-        model_files = [file for file in model_files if filter_fn(file)]
-
-    if not model_files:
-        logger.info("No models after filtering")
-        gr.Info("No models found")
-        pr(1.0, "Done")
-        time.sleep(1.5)
-        return
-
-    # Build model descriptors
-    pr(0.3, "Building model descriptors")
-    model_descriptors = []
-    for model_file in model_files:
-        try:
-            descriptor = files.generate_model_descriptor(model_file, recalculate_hash)
-            model_descriptors.append(descriptor)
-        except Exception as e:
-            msg = f"Failed to build model descriptor for {os.path.basename(model_file)}: {str(e)}"
-            logger.error(msg)
-            gr.Warning(msg)
 
     # Process models in batches for better performance without overwhelming the API
     total_models = len(model_descriptors)
@@ -124,9 +186,6 @@ async def process_models_async(
 
         # Give a small delay between batches to let resources clean up
         await asyncio.sleep(0.5)
-
-    pr(1.0, "Done")
-    time.sleep(1.5)
 
 
 async def metadata_processor_async(
@@ -206,10 +265,8 @@ async def image_processor_async(
 
 # Synchronous wrapper functions for Gradio compatibility
 def update_metadata(
-    model_types: list[ModelType],
-    overwrite_existing: bool,
-    recalculate_hash: bool,
-    pr: gr.Progress = gr.Progress(),  # noqa: B008
+    model_descriptors: list[ModelDescriptor],
+    pr: gr.Progress,
 ) -> None:
     """Updates metadata for model files."""
     # Get the current event loop or create a new one if needed
@@ -222,21 +279,16 @@ def update_metadata(
     # Run the async function without closing the loop afterward
     loop.run_until_complete(
         process_models_async(
-            model_types=model_types,
-            overwrite_existing=overwrite_existing,
-            recalculate_hash=recalculate_hash,
+            model_descriptors=model_descriptors,
             pr=pr,
             processor_fn=metadata_processor_async,
-            filter_fn=lambda file: not files.has_json(file),
         )
     )
 
 
 def update_preview_images(
-    model_types: list[ModelType],
-    overwrite_existing: bool,
-    recalculate_hash: bool,
-    pr: gr.Progress = gr.Progress(),  # noqa: B008
+    model_descriptors: list[ModelDescriptor],
+    pr: gr.Progress,
 ) -> None:
     """Updates preview images for model files."""
     # Get the current event loop or create a new one if needed
@@ -249,11 +301,132 @@ def update_preview_images(
     # Run the async function without closing the loop afterward
     loop.run_until_complete(
         process_models_async(
-            model_types=model_types,
-            overwrite_existing=overwrite_existing,
-            recalculate_hash=recalculate_hash,
+            model_descriptors=model_descriptors,
             pr=pr,
             processor_fn=image_processor_async,
-            filter_fn=lambda file: not files.preview_exists(file),
         )
     )
+
+
+def process_update(
+    update_type_name: str,
+    model_descriptors: list,
+    wrapped_pr,
+    overwrite_existing: bool,
+    filter_check_func,
+    update_func,
+    i: int,
+    total_types: int,
+):
+    """
+    Process updates for models based on the provided parameters.
+
+    Args:
+        update_type_name: Name of the update type (metadata or preview images)
+        model_descriptors: List of model descriptors to process
+        wrapped_pr: Progress reporting function
+        overwrite_existing: Whether to overwrite existing files
+        filter_check_func: Function to check if a model needs updates
+        update_func: Function to call for updating models
+        i: Current update type index
+        total_types: Total number of update types
+    """
+    logger.info(f"Updating {update_type_name} ({i + 1}/{total_types})")
+
+    wrapped_pr(fraction=0.2, description="Checking for overwrite")
+
+    # Filter models that need updates
+    filtered_descriptors = files.filter_model_descriptors(
+        model_descriptors=model_descriptors,
+        overwrite_existing=overwrite_existing,
+        filter_fn=filter_check_func,
+    )
+
+    if not filtered_descriptors:
+        gr.Info(f"No models need {update_type_name} updates")
+        logger.info(f"No models need {update_type_name} updates")
+    else:
+        update_func(
+            model_descriptors=filtered_descriptors,
+            pr=wrapped_pr,
+        )
+    wrapped_pr(fraction=0.95, description="")
+
+
+def update_models(
+    model_types: list[ModelType],
+    update_types: list[str],
+    options: list[str],
+    pr: gr.Progress,
+) -> None:
+    """
+    Updates models with specified update types (metadata and/or preview images).
+
+    Args:
+        model_types: Types of models to process
+        update_types: List of update types ('metadata', 'preview_images')
+        options: List of update options
+        pr: Gradio progress component
+    """
+
+    # Filter valid update types
+    update_types = [t for t in update_types if t in UpdateType]
+
+    if not update_types:
+        gr.Warning("No valid update types selected")
+        return
+
+    overwrite_existing = UpdateOptions.OVERWRITE_EXISTING.value in options
+    recalculate_hash = UpdateOptions.RECALCULATE_HASHES.value in options
+
+    total_types = len(update_types)
+    progress_per_type = 1.0 / total_types
+
+    # Get model descriptors first
+    model_descriptors = find_and_build_model_descriptors(
+        model_types=model_types,
+        recalculate_hash=recalculate_hash,
+        pr=pr,
+    )
+
+    if not model_descriptors:
+        gr.Warning("No models found to process")
+        return
+
+    wrapped_pr: ProgressWrapper = None
+
+    for i, update_type in enumerate(update_types):
+        # Calculate progress range for this update type
+        start_progress = i * progress_per_type
+        end_progress = (i + 1) * progress_per_type
+
+        wrapped_pr = ProgressWrapper(pr, start_progress, end_progress)
+
+        # Call the appropriate update function with filtered model descriptors
+        if update_type == UpdateType.METADATA.value:
+            process_update(
+                update_type_name="metadata",
+                model_descriptors=model_descriptors,
+                wrapped_pr=wrapped_pr,
+                overwrite_existing=overwrite_existing,
+                filter_check_func=lambda d: not files.has_json(d.filename),
+                update_func=update_metadata,
+                i=i,
+                total_types=total_types,
+            )
+        elif update_type == UpdateType.PREVIEW_IMAGES.value:
+            process_update(
+                update_type_name="preview images",
+                model_descriptors=model_descriptors,
+                wrapped_pr=wrapped_pr,
+                overwrite_existing=overwrite_existing,
+                filter_check_func=lambda d: not files.preview_exists(d.filename),
+                update_func=update_preview_images,
+                i=i,
+                total_types=total_types,
+            )
+
+    # Ensure progress completes
+    if wrapped_pr:
+        wrapped_pr(fraction=1.0, description="All updates complete")
+    time.sleep(1.5)

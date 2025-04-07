@@ -78,6 +78,16 @@ class ModelType(str, Enum):
     TEXTUAL_INVERSION = "Textual Inversion"
 
 
+class UpdateType(str, Enum):
+    METADATA = "Tags"
+    PREVIEW_IMAGES = "Preview Images"
+
+
+class UpdateOptions(str, Enum):
+    OVERWRITE_EXISTING = "Overwrite Existing"
+    RECALCULATE_HASHES = "Recalculate Hashes"
+
+
 class ModelDescriptor(BaseModel):
     metadata_descriptor: MetadataDescriptor
     filename: str

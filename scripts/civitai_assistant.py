@@ -1,7 +1,7 @@
 import gradio as gr
 
-from civitai_assistant.types import ModelType
-from civitai_assistant.update import update_metadata, update_preview_images
+from civitai_assistant.types import ModelType, UpdateOptions, UpdateType
+from civitai_assistant.update import update_models
 from civitai_assistant.ui import create_progressable_button
 
 from modules import script_callbacks
@@ -18,24 +18,35 @@ def on_ui_tabs():
                     [member.value for member in ModelType], label="Models"
                 )
             with gr.Row():
-                with gr.Group():
-                    overwrite_checkbox = gr.Checkbox(
-                        False, label="Overwite Existing Tags/Images"
-                    )
-                    recalculate_hash = gr.Checkbox(False, label="Recalculate Hashes")
+                update_types = gr.CheckboxGroup(
+                    [member.value for member in UpdateType], label="Update Types"
+                )
+            with gr.Row():
+                options_group = gr.CheckboxGroup(
+                    choices=[member.value for member in UpdateOptions], label="Options"
+                )
 
-            inputs = [model_checkboxes, overwrite_checkbox, recalculate_hash]
-            with gr.Row():
-                create_progressable_button(
-                    "Update Tags", update_metadata, inputs=inputs
+            inputs = [
+                model_checkboxes,
+                update_types,
+                options_group,
+            ]
+
+            def update_handler(
+                model_types,
+                update_selections,
+                options,
+                pr: gr.Progress = gr.Progress(),  # noqa: B008
+            ):
+                update_models(
+                    model_types=model_types,
+                    update_types=update_selections,
+                    options=options,
+                    pr=pr,
                 )
+
             with gr.Row():
-                create_progressable_button(
-                    "Update Preview Images", update_preview_images, inputs=inputs
-                )
-            with gr.Row():
-                # TODO: Implement the check for updates functionality
-                gr.Button("Check For Updates", interactive=False)
+                create_progressable_button("Update", update_handler, inputs=inputs)
 
         return [(civitai_assistant_view, "Civitai Assistant", "civitai_assistant_tab")]
 
