@@ -92,13 +92,6 @@ def find_and_build_model_descriptors(
         time.sleep(1.5)
         return []
 
-    if not model_files:
-        logger.info("No models after filtering")
-        gr.Info("No models found")
-        pr(fraction=1.0, description="Done")
-        time.sleep(1.5)
-        return []
-
     # Build model descriptors
     pr(0.3, "Building model descriptors")
     model_descriptors = []
@@ -353,6 +346,21 @@ def process_update(
     wrapped_pr(fraction=0.95, description="")
 
 
+def _json_missing_essential_fields(descriptor):
+    """Check if JSON metadata file is missing any essential fields."""
+    if not files.has_json(descriptor.filename):
+        return True
+    
+    try:
+        md = descriptor.metadata_descriptor
+        # Check if description is missing/empty
+        return not (md.description or md.model_id or md.activation_text)
+
+    except Exception:
+        # If there's any issue reading the metadata, consider it missing fields
+        return True
+
+
 def update_models(
     model_types: list[ModelType],
     update_types: list[str],
@@ -403,13 +411,13 @@ def update_models(
         wrapped_pr = ProgressWrapper(pr, start_progress, end_progress)
 
         # Call the appropriate update function with filtered model descriptors
-        if update_type == UpdateType.METADATA.value:
+        if update_type == UpdateType.METADATA.value:            
             process_update(
                 update_type_name="metadata",
                 model_descriptors=model_descriptors,
                 wrapped_pr=wrapped_pr,
                 overwrite_existing=overwrite_existing,
-                filter_check_func=lambda d: not files.has_json(d.filename),
+                filter_check_func=_json_missing_essential_fields,
                 update_func=update_metadata,
                 i=i,
                 total_types=total_types,
