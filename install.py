@@ -1,18 +1,17 @@
-import importlib.util
+import importlib
 import subprocess
 import sys
 
-from civitai_assistant.utils.logger import logger
-
 
 def is_package_installed(package_name):
-    spec = importlib.util.find_spec(package_name)
-    if spec is None:
-        logger.error(f"Package '{package_name}' is not installed or not found.")
-    return spec is not None
+    try:
+        importlib.import_module(package_name)
+        return True
+    except ImportError:
+        return False
 
 
-def install_package(package_name, min_version=None, max_version=None):
+def install_package(package_name, alias, min_version=None, max_version=None):
     try:
         version_spec = ""
         if min_version:
@@ -21,23 +20,26 @@ def install_package(package_name, min_version=None, max_version=None):
             version_spec += f",<={max_version}"
 
         package_with_version = f"{package_name}{version_spec}"
-        subprocess.check_call(
-            [sys.executable, "-m", "pip", "install", package_with_version, "--quiet"]
+
+        subprocess.run(
+            [sys.executable, "-m", "pip", "install", package_with_version, "--quiet"],
+            capture_output=True,
+            check=True,
         )
 
-    except subprocess.CalledProcessError as e:
-        logger.error(f"Failed to install package '{package_name}'. Error: {e}")
+    except Exception as e:
+        print(f"Failed to install package '{package_name}'. Error: {e}")
 
 
 def install():
     # requirements
     deps = [
-        ("beautifulsoup4", "4.11.1", None),
-        ("cachetools", None, None),
+        ("beautifulsoup4", "bs4", "4.11.1", None),
+        ("cachetools", None, None, None),
     ]
 
     for pkg in deps:
-        if not is_package_installed(pkg[0]):
+        if not is_package_installed(pkg[1] if pkg[1] else pkg[0]):
             install_package(*pkg)
 
 

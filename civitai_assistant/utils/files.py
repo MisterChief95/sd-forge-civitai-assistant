@@ -14,7 +14,7 @@ from civitai_assistant.utils.logger import logger
 from civitai_assistant.types import MetadataDescriptor, ModelDescriptor
 
 
-def calculate_hash(file_path: str) -> str:
+def calculate_hash(file_path: str, buffer_size: int=8192) -> str:
     """
     Computes the SHA-256 hash of a file.
     Args:
@@ -25,18 +25,17 @@ def calculate_hash(file_path: str) -> str:
     Raises:
         FileNotFoundError: If the file does not exist at the specified path.
     """
-
     if not os.path.isfile(file_path):
         raise FileNotFoundError(f"The file {file_path} does not exist.")
-
+    
     sha256_hash = hashlib.sha256()
 
-    with open(file_path, "rb") as file:
-        while chunk := file.read(8192):
+    with open(file_path, 'rb') as f:
+        while chunk := f.read(buffer_size):
             sha256_hash.update(chunk)
 
     logger.info(f"Computed hash: {os.path.basename(file_path)}")
-
+    
     return sha256_hash.hexdigest()
 
 
