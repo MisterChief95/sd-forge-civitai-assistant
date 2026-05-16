@@ -20,8 +20,15 @@ def progressify_sequence(
     Returns:
         tuple[int, float]: A tuple containing the number of steps and the progress step size.
     """
-    num_steps = items if isinstance(items, int) else len(items)
-    progress_step = (upper_bound - lower_bound) / num_steps
+    if not items:
+        return
+
+    num_steps = len(items)
+    if num_steps == 1:
+        yield items[0], upper_bound
+        return
+
+    progress_step = (upper_bound - lower_bound) / (num_steps - 1)
 
     for i, item in enumerate(items):
         yield item, lower_bound + progress_step * i
@@ -29,8 +36,8 @@ def progressify_sequence(
 
 def create_progressable_button(
     button_text: str,
-    progressable_fn: Callable[[], None],
-    inputs: list[gr.components.Component] = None,
+    progressable_fn: Callable[..., None],
+    inputs: list[gr.components.Component] | None = None,
 ):
     """
     Creates a button that shows a progress label when clicked and executes a given function.

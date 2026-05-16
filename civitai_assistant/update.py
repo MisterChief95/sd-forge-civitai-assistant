@@ -134,10 +134,11 @@ async def process_models_async(
     total_models = len(model_descriptors)
     for i in range(0, total_models, batch_size):
         batch = model_descriptors[i : i + batch_size]
+        batch_len = len(batch)
 
         # Update progress
         progress_start = 0.3 + (i / total_models) * 0.6
-        progress_end = 0.3 + ((i + len(batch)) / total_models) * 0.6
+        progress_end = 0.3 + ((i + batch_len) / total_models) * 0.6
         batch_progress = progress_start
 
         try:
@@ -150,13 +151,16 @@ async def process_models_async(
             civitai_models = await api.fetch_multiple_by_hash(model_hashes, api_key)
 
             # Process each model in the batch
-            for descriptor in batch:
+            for batch_index, descriptor in enumerate(batch):
                 model_hash = descriptor.metadata_descriptor.hash
                 civitai_model = civitai_models.get(model_hash)
 
-                batch_progress = progress_start + (
-                    batch.index(descriptor) / len(batch)
-                ) * (progress_end - progress_start)
+                if batch_len == 1:
+                    batch_progress = progress_end
+                else:
+                    batch_progress = progress_start + (
+                        (batch_index / (batch_len - 1)) * (progress_end - progress_start)
+                    )
                 pr(batch_progress, f"Processing {descriptor.file_basename}")
 
                 if not civitai_model:
@@ -212,10 +216,14 @@ async def metadata_processor_async(
     descriptor.metadata_descriptor.activation_text = activation_text
 
     # Process description
+    use_html = opts.data.get("ca_use_html_descriptions", False)
     if description and not description.isspace():
-        descriptor.metadata_descriptor.description = soup(
-            description, "html.parser"
-        ).get_text()
+        descriptor.metadata_descriptor.description = (
+            description if use_html else soup(description, "html.parser").get_text()
+        )
+    elif descriptor.metadata_descriptor.description is None:
+        # Mark as attempted-but-empty so the filter doesn't keep re-fetching
+        descriptor.metadata_descriptor.description = ""
 
     # Write metadata to file
     try:
@@ -350,11 +358,14 @@ def _json_missing_essential_fields(descriptor):
     """Check if JSON metadata file is missing any essential fields."""
     if not files.has_json(descriptor.filename):
         return True
-    
+
     try:
         md = descriptor.metadata_descriptor
-        # Check if description is missing/empty
-        return not (md.description or md.model_id or md.activation_text)
+        # model_id must be present; description must have been attempted (not None).
+        # A None description means the fetch was never completed, so we re-process.
+        # An empty string means the fetch was done but CivitAI returned nothing, which
+        # is considered complete (avoids endless re-fetching for undescribed models).
+        return not md.model_id or md.description is None
 
     except Exception:
         # If there's any issue reading the metadata, consider it missing fields
@@ -378,7 +389,8 @@ def update_models(
     """
 
     # Filter valid update types
-    update_types = [t for t in update_types if t in UpdateType]
+    valid_update_types = {member.value for member in UpdateType.__members__.values()}
+    update_types = [t for t in update_types if t in valid_update_types]
 
     if not update_types:
         gr.Warning("No valid update types selected")
