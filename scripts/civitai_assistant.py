@@ -8,6 +8,11 @@ from modules import script_callbacks
 from modules import shared
 
 
+MODEL_CHOICES = [member.value for member in ModelType.__members__.values()]
+UPDATE_TYPE_CHOICES = [member.value for member in UpdateType.__members__.values()]
+UPDATE_OPTION_CHOICES = [member.value for member in UpdateOptions.__members__.values()]
+
+
 def on_ui_tabs():
     with gr.Blocks(analytics_enabled=False) as civitai_assistant_view:
         with gr.Column(scale=1, min_width=768):
@@ -15,15 +20,15 @@ def on_ui_tabs():
                 gr.HTML("<center><h1>Civitai Assistant</h1></center>")
             with gr.Row():
                 model_checkboxes = gr.CheckboxGroup(
-                    [member.value for member in ModelType], label="Models"
+                    choices=MODEL_CHOICES, label="Models"
                 )
             with gr.Row():
                 update_types = gr.CheckboxGroup(
-                    [member.value for member in UpdateType], label="Update Types"
+                    choices=UPDATE_TYPE_CHOICES, label="Update Types"
                 )
             with gr.Row():
                 options_group = gr.CheckboxGroup(
-                    choices=[member.value for member in UpdateOptions], label="Options"
+                    choices=UPDATE_OPTION_CHOICES, label="Options"
                 )
 
             inputs = [
@@ -61,6 +66,15 @@ def on_ui_settings():
         "ca_api_key": shared.OptionInfo("", "CivitAI API Key").info(
             "Used for downloading models from CivitAI."
         ),
+        "ca_max_scan_depth": shared.OptionInfo(
+            4,
+            "Max Scan Depth",
+            gr.Slider,
+            {"minimum": 1, "maximum": 10, "step": 1},
+        ).info("Maximum subdirectory depth to scan when searching for model files."),
+        "ca_follow_symlinks": shared.OptionInfo(
+            False, "Follow Symlinks"
+        ).info("Follow symbolic links when scanning model directories."),
     }
 
     # Add normal settings

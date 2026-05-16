@@ -6,7 +6,7 @@ from civitai_assistant.const import SAFETENSORS
 from civitai_assistant.utils.logger import logger
 from civitai_assistant.types import ModelType
 
-from modules.shared import cmd_opts
+from modules.shared import cmd_opts, opts
 from modules.paths_internal import models_path, data_path
 
 
@@ -44,6 +44,9 @@ MODEL_TYPE_TO_DIRECTORY: dict[ModelType, Callable[[], list[str]]] = {
 }
 
 
+MAX_SCAN_DEPTH = 4
+
+
 def find_model_files(model_types: list[ModelType]) -> list[str]:
     """
     Finds all model files of the specified types.
@@ -67,7 +70,14 @@ def find_model_files(model_types: list[ModelType]) -> list[str]:
                 logger.debug(f"Model directory does not exist: {model_dir}")
                 continue
 
-            for root, _, files in os.walk(model_dir):
+            max_depth = getattr(opts, "ca_max_scan_depth", MAX_SCAN_DEPTH)
+            follow_symlinks = getattr(opts, "ca_follow_symlinks", False)
+            base_depth = model_dir.rstrip(os.sep).count(os.sep)
+            for root, dirs, files in os.walk(model_dir, followlinks=follow_symlinks):
+                current_depth = root.rstrip(os.sep).count(os.sep) - base_depth
+                if current_depth >= max_depth:
+                    dirs.clear()
+                    continue
                 for file in files:
                     if file.endswith(SAFETENSORS):
                         model_files.append(os.path.join(root, file))

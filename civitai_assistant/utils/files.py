@@ -1,6 +1,7 @@
 import hashlib
 import os
 import json
+from pathlib import Path
 from typing import Any
 
 from threading import Lock
@@ -13,30 +14,80 @@ from civitai_assistant.utils.errors import get_exception_msg
 from civitai_assistant.utils.logger import logger
 from civitai_assistant.types import MetadataDescriptor, ModelDescriptor
 
+try:
+    from modules import hashes as _webui_hashes
+except Exception:
+    _webui_hashes = None
 
-def calculate_hash(file_path: str, buffer_size: int=8192) -> str:
+from civitai_assistant.utils.sd_path import get_checkpoint_dirs, get_lora_dirs, get_embeddings_dirs
+
+
+# Map of base directory → cache-key prefix, matching hashes.py conventions.
+# Evaluated lazily so cmd_opts-based custom dirs are included.
+def _get_hash_prefix_map() -> list[tuple[str, str]]:
+    pairs: list[tuple[str, str]] = []
+    for d in get_checkpoint_dirs():
+        pairs.append((d, "checkpoint"))
+    for d in get_lora_dirs():
+        pairs.append((d, "lora"))
+    for d in get_embeddings_dirs():
+        pairs.append((d, "textual_inversion"))
+    return pairs
+
+
+def _hash_cache_title(file_path: str) -> str:
+    """Return the cache title used by the WebUI hash cache for a given model file."""
+    abs_path = os.path.abspath(file_path)
+    for base_dir, prefix in _get_hash_prefix_map():
+        try:
+            rel = os.path.relpath(abs_path, base_dir)
+            if not rel.startswith(".."):
+                return f"{prefix}/{rel}"
+        except ValueError:
+            # relpath raises ValueError on Windows when paths are on different drives
+            pass
+    # Fallback: use a stable, collision-resistant key for paths outside known model dirs.
+    return f"external/{hashlib.sha256(abs_path.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _calculate_hash_direct(file_path: str, buffer_size: int = 8192) -> str:
+    """Compute SHA-256 directly without using the WebUI cache."""
+    sha256_hash = hashlib.sha256()
+    with open(file_path, "rb") as f:
+        while chunk := f.read(buffer_size):
+            sha256_hash.update(chunk)
+    return sha256_hash.hexdigest()
+
+
+def calculate_hash(file_path_str: str, buffer_size: int = 8192) -> str:
     """
-    Computes the SHA-256 hash of a file.
+    Returns the SHA-256 hash for a model file, delegating to the WebUI's
+    built-in hash cache (modules.hashes) when available.  If the cache
+    already holds a valid hash for the file it is returned immediately;
+    otherwise the hash is computed, stored in the cache, and returned.
+
     Args:
         file_path (str): The path to the file to hash.
-        buffer_size (int, optional): The size of the buffer to use when reading the file. Defaults to 8192.
+        buffer_size (int, optional): Buffer size used for direct computation
+            when the WebUI cache module is unavailable. Defaults to 8192.
     Returns:
         str: The SHA-256 hash of the file in hexadecimal format.
     Raises:
         FileNotFoundError: If the file does not exist at the specified path.
     """
-    if not os.path.isfile(file_path):
-        raise FileNotFoundError(f"The file {file_path} does not exist.")
+    if not os.path.isfile(file_path_str):
+        raise FileNotFoundError(f"The file {file_path_str} does not exist.")
     
-    sha256_hash = hashlib.sha256()
+    if _webui_hashes is not None:
+        title = _hash_cache_title(file_path_str)
+        result = _webui_hashes.sha256(Path(file_path_str), title)
+        if result is not None:
+            logger.info(f"Hash (cached): {os.path.basename(file_path_str)}")
+            return result
+        # sha256() returns None only when cmd_opts.no_hashing is set; fall through.
 
-    with open(file_path, 'rb') as f:
-        while chunk := f.read(buffer_size):
-            sha256_hash.update(chunk)
-
-    logger.info(f"Computed hash: {os.path.basename(file_path)}")
-    
-    return sha256_hash.hexdigest()
+    logger.info(f"Computing hash: {os.path.basename(file_path_str)}")
+    return _calculate_hash_direct(file_path_str, buffer_size)
 
 
 def preview_exists(file_path: str) -> bool:
